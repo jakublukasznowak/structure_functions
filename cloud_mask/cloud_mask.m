@@ -19,8 +19,8 @@ for i_s = 1:Nseg
     TURB(i_s).PMA_mask = double(mask_interp>0.5);
     TURB(i_s).PMA_mask(isnan(mask_interp)) = nan;
     
-    MOM.PMA_mask_nan_fraction(i_s) = sum(isnan(TURB(i_s).PMA_mask)) / length(TURB(i_s).PMA_mask);
-    MOM.PMA_mask_cloud_fraction(i_s) = sum(TURB(i_s).PMA_mask,'omitnan') / sum(~isnan(TURB(i_s).PMA_mask));  
+    MOM.PMA_nan_fraction(i_s) = sum(isnan(TURB(i_s).PMA_mask)) / length(TURB(i_s).PMA_mask);
+    MOM.PMA_cloud_fraction(i_s) = sum(TURB(i_s).PMA_mask,'omitnan') / sum(~isnan(TURB(i_s).PMA_mask));  
     
     
     % RH mask
@@ -28,8 +28,8 @@ for i_s = 1:Nseg
     TURB(i_s).RH_mask = double(TURB(i_s).RH>rh_limit);      
     TURB(i_s).RH_mask(isnan(TURB(i_s).RH)) = nan;
     
-    MOM.RH_mask_nan_fraction(i_s) = sum(isnan(TURB(i_s).RH_mask)) / length(TURB(i_s).RH_mask);
-    MOM.RH_mask_cloud_fraction(i_s) = sum(TURB(i_s).RH_mask,'omitnan') / sum(~isnan(TURB(i_s).RH_mask));
+    MOM.RH_nan_fraction(i_s) = sum(isnan(TURB(i_s).RH_mask)) / length(TURB(i_s).RH_mask);
+    MOM.RH_cloud_fraction(i_s) = sum(TURB(i_s).RH_mask,'omitnan') / sum(~isnan(TURB(i_s).RH_mask));
     
     
     % OR mask
@@ -41,6 +41,8 @@ for i_s = 1:Nseg
     
     TURB(i_s).OR_mask_ext = (sum_mask>0);
     TURB(i_s).OR_mask_ext(isnan(sum_mask)) = true; % Assume cloud if both masks are nan
+    
+    MOM.OR_cloud_fraction(i_s) = sum(TURB(i_s).OR_mask_ext) / length(TURB(i_s).OR_mask_ext);
     
 end
 

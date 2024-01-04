@@ -35,9 +35,9 @@ for i_s = 1:Nseg
     TURB(i_s).TH_V = thv; 
     TURB(i_s).RH   = rh*100;
     
-    TURB(i_s).B   = detrend( g/mean(thv)*(thv-mean(thv)) ); % buoyancy
-    TURB(i_s).Bt  = detrend( g/mean(th) *(th -mean(th)) );  % pseudobuoyancy t-part
-    TURB(i_s).Btq = detrend( g/mean(th) *(1/ep-1)*(th.*q-mean(th.*q)) ); % pseudobuoyancy tq-part
+    TURB(i_s).B  = detrend( g/mean(thv)*(thv-mean(thv)) ); % buoyancy
+    TURB(i_s).Bt = detrend( g/mean(th) *(th -mean(th)) );  % pseudobuoyancy t-part
+    TURB(i_s).Bq = detrend( g/mean(th) *(1/ep-1)*(th.*q-mean(th.*q)) ); % pseudobuoyancy tq-part
 end
 
 end

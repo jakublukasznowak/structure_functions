@@ -1,5 +1,5 @@
 
-addpath('load','calculate','cloud_mask','plots','utils','utils/yaml_Koch')
+% addpath(pwd,'load','calculate','cloud_mask','plots','utils','utils/yaml_Koch')
 
 
 
@@ -64,6 +64,7 @@ PMA = load_pma(MOM,mydatapath,pma_vars);
 
 [MOM.dir2,MOM.dir4] = dev_angle(MOM.MEAN_THDG,MOM.MEAN_WDIR);
 MOM.dr = MOM.MEAN_TAS./[TURB.fsamp]';
+MOM.length = (MOM.time_end-MOM.time_start).*MOM.MEAN_TAS;
 
 TURB = calculate_thermo(TURB,MOM); % thermodynamic parameters
 
@@ -83,18 +84,197 @@ plot_seg_overview(MOM);
 
 
 
+%% Calculate structure functions
+
+% List of structure functions
+
+sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
+            'vvu',{'UX_DET','UX_DET','VY_DET'};
+            'wwu',{'W_DET','W_DET','VY_DET'};
+            'wB', {'W_DET','B'};
+            'wBt',{'W_DET','Bt'};
+            'wBq',{'W_DET','Bq'};
+            'uu', {'VY_DET','VY_DET'};
+            'vv', {'UX_DET','UX_DET'};
+            'ww', {'W_DET','W_DET'}
+            };
+
+% Assume fixed distance between points
+dr = 4;
+
+% Consider max lag of 400 m
+r_maxlag = 400/dr;
+
+
+MOM.valid_fraction(MOM.level=="cloud-base") = 1 - MOM.OR_cloud_fraction(MOM.level=="cloud-base");
+MOM.valid_fraction(MOM.level~="cloud-base") = 1;
+
+S = table2struct(MOM(:,{'flight','name','level','alt','length','valid_fraction'}));
+V = S; L = S; N = S; U = S;
+
+Nseg = size(S,1);
+Nvar = size(sfc_vars,1);
+
+for i_v = 1:Nvar
+    
+    var = sfc_vars{i_v,1};
+    fprintf('S_%s = < ',var)
+    fprintf('d %s ',sfc_vars{i_v,2}{:})
+    fprintf('>\n')
+    
+    for i_s = 1:Nseg
+    
+        A = cell2mat( cellfun(@(v) TURB(i_s).(v),sfc_vars{i_v,2},'UniformOutput',false) );
+        
+        if S(i_s).level == "cloud-base"
+            A(TURB(i_s).OR_mask_ext,:) = nan; % mask cloudy points
+        end
+        
+        if ~any(all(isnan(A),1))
+            
+            La = size(A,1);
+            
+            S(i_s).(var) = nan(1,r_maxlag);
+            V(i_s).(var) = nan(1,r_maxlag);
+            L(i_s).(var) = nan(1,r_maxlag);
+            S(i_s).N     = nan(1,r_maxlag);
+
+            for r_lag = 1:r_maxlag
+
+                I = prod( A(r_lag+1:La,:) - A(1:La-r_lag,:), 2 ); % increments
+                
+                S(i_s).(var)(r_lag) = mean(I,'omitnan');        % structure function
+                V(i_s).(var)(r_lag) = mean(I.^2,'omitnan');     % variance of increments
+                L(i_s).(var)(r_lag) = int_ls_short(I)*dr;       % integral length scale for increments
+                S(i_s).N    (r_lag) = sum(~isnan(I));           % number of increment samples
+
+            end
+        
+            N(i_s).(var) = S(i_s).valid_fraction*S(i_s).length./L(i_s).(var); % number of independent samples
+%             N(i_s).(var) = S(i_s).N*dr./L(i_s).(var);
+            U(i_s).(var) = sqrt( (V(i_s).(var) - S(i_s).(var).^2) ./ N(i_s).(var) );     % uncertainty
+              
+        end
+
+    end
+    
+end
 
 
 
+%% Average structure functions at levels
+
+% List of segments to exclude from averaging
+exclude_seg = ["RF17","L2A";
+               "RF09","L1B";
+               "RF19","S1";
+               "RF11","L1A"; % rain + temperature variations + excessive Us
+               "RF17","L1B"]; % rain + temperature variations + excessive Us       
+
+
+Nseg = size(S,1);
+Nlvl = numel(levels);
+Nvar = size(sfc_vars,1);
+
+% Valid segments
+valid_seg = true(Nseg,1);
+for i_e = 1:size(exclude_seg,1)
+    valid_seg( [S(:).flight]==exclude_seg(i_e,1) & [S(:).name]==exclude_seg(i_e,2) ) = false;
+end
+
+% Segments with correct humidity measurement
+valid_hum = (MOM.RH_nan_fraction==0);
+
+
+avS = struct([]);
+avN = struct([]);
+avU = struct([]);
+
+for i_l = 1:Nlvl
+    ind_l = find([S(:).level]'==levels{i_l} & valid_seg);
+    
+    avS(i_l,1).level  = string(levels{i_l});
+    avS(i_l).number = numel(ind_l);
+    avS(i_l).alt    = mean([S(ind_l).alt]);
+    avS(i_l).length = mean([S(ind_l).length]);
+    
+    for i_v = 1:Nvar
+        var = sfc_vars{i_v,1};
+        
+        if ismember(var,{'wB','wBt','wBq'})
+            ind_lv = find([S(:).level]'==levels{i_l} & valid_seg & valid_hum);
+        else
+            ind_lv = ind_l;
+        end
+        
+        avS(i_l,1).(var) = mean( cat(1,S(ind_lv).(var)), 1);
+        avV              = mean( cat(1,V(ind_lv).(var)), 1);
+        avN(i_l,1).(var) = sum( repmat([S(ind_lv).valid_fraction]'.*[S(ind_lv).length]',1,r_maxlag) ...
+            ./ cat(1,L(ind_lv).(var)) );
+        avU(i_l,1).(var) = sqrt( (avV - avS(i_l).(var).^2) ./ avN(i_l).(var) );
+    end
+    
+    % s3L
+    if all(ismember({'uuu','vvu','wwu'},fieldnames(avS)))
+        avS(i_l).s3l = 3*( avS(i_l).uuu + avS(i_l).vvu + avS(i_l).wwu );
+        avU(i_l).s3l = 3*sqrt( avU(i_l).uuu.^2 + avU(i_l).vvu.^2 + avU(i_l).wwu.^2 );
+    end
+    
+    % wBt + wBq
+    if all(ismember({'wBt','wBq'},fieldnames(avS)))
+        avS(i_l).wQ  = avS(i_l).wBt + avS(i_l).wBq;
+        avU(i_l).wQ  = sqrt(avU(i_l).wBt.^2 + avU(i_l).wBq.^2);
+    end
+end
 
 
 
+%% Compensate / integrate
+
+r = (1:r_maxlag)*dr;
+
+for i_l = 1:Nlvl
+    avS(i_l).s3lr = avS(i_l).s3l./r;
+    avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
+    avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
+    avS(i_l).wwu3r = 3*avS(i_l).wwu./r;
+    
+    avU(i_l).s3lr = avU(i_l).s3l./r;
+    avU(i_l).uuu3r = 3*avU(i_l).uuu./r;
+    avU(i_l).vvu3r = 3*avU(i_l).vvu./r;
+    avU(i_l).wwu3r = 3*avU(i_l).wwu./r; 
+
+    avS(i_l).W  = 6*cumtrapz(r,avS(i_l).wB .*r.^2) ./ r.^3;
+    avS(i_l).Wt = 6*cumtrapz(r,avS(i_l).wBt.*r.^2) ./ r.^3;
+    avS(i_l).Wq = 6*cumtrapz(r,avS(i_l).wBq.*r.^2) ./ r.^3;
+    
+    avU(i_l).W  = 6*cumtrapz(r,avU(i_l).wB .*r.^2) ./ r.^3;
+    avU(i_l).Wt = 6*cumtrapz(r,avU(i_l).wBt.*r.^2) ./ r.^3;
+    avU(i_l).Wq = 6*cumtrapz(r,avU(i_l).wBq.*r.^2) ./ r.^3;
+    
+    avS(i_l).s3lrW = avS(i_l).s3lr - avS(i_l).W;
+    avU(i_l).s3lrW = avU(i_l).s3lr + avU(i_l).W;
+end
 
 
 
+%% Plot structure functions
 
+plotpath = 'figures';
 
+plots = { {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
+          {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
+          {'s3lr','W','s3lrW'}, {'$S_3^L r^{-1}$','$W$','$S_3^L r^{-1}-W$'} };
 
+for i_p = 1:size(plots,1)
+    for i_l = 1:Nlvl
+        fig = plot_sfc(r,avS(i_l),avU(i_l),plots{i_p,1},[5 6 7],...
+            'XLim',[4 400],'YLim',[1e-6 2e-3]);
+        legend(plots{i_p,2},'Interpreter','latex','Location','best')
+        title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+        print(fig,[plotpath,filesep,'S_',levels{i_l},'_',plots{i_p,1}{1}],'-dpng','-r300')
+    end
+end
 
 
 
