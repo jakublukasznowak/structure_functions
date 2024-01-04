@@ -1,5 +1,5 @@
 
-function TURB = calculate_thermo(TURB,MOM)
+function TURB = calc_thermo(TURB,MOM)
 
 Mv = 18.015;     % [g/mol]
 Md = 28.9647;

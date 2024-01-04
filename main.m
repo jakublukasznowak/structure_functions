@@ -74,7 +74,7 @@ PMA = load_pma(MOM,mydatapath,pma_vars);
 MOM.dr = MOM.MEAN_TAS./[TURB.fsamp]';
 MOM.length = (MOM.time_end-MOM.time_start).*MOM.MEAN_TAS;
 
-TURB = calculate_thermo(TURB,MOM); % thermodynamic parameters
+TURB = calc_thermo(TURB,MOM); % thermodynamic parameters
 
 
 % Cloud masks
@@ -84,6 +84,9 @@ TURB = calculate_thermo(TURB,MOM); % thermodynamic parameters
 % (3) any of the two extended masks
 
 [TURB,MOM] = cloud_mask(TURB,MOM,PMA,98,1);
+
+MOM.valid = 1 - MOM.OR_cloud_fraction;
+MOM.valid(MOM.level~="cloud-base") = 1;
 
 
 % Plot overview of the segments
@@ -108,16 +111,13 @@ sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
             };
 
 % Assume fixed distance between points
-dr = 4;
+MOM.dr(:) = 4;
 
 % Consider max lag of 400 m
-r_maxlag = 400/dr;
+r_maxlag = 400/4;
 
 
-MOM.valid_fraction(MOM.level=="cloud-base") = 1 - MOM.OR_cloud_fraction(MOM.level=="cloud-base");
-MOM.valid_fraction(MOM.level~="cloud-base") = 1;
-
-S = table2struct(MOM(:,{'flight','name','level','alt','length','valid_fraction'}));
+S = table2struct(MOM(:,{'flight','name','level','alt','dr','length','valid'}));
 V = S; L = S; N = S; U = S;
 
 Nseg = size(S,1);
@@ -153,14 +153,14 @@ for i_v = 1:Nvar
                 
                 S(i_s).(var)(r_lag) = mean(I,'omitnan');        % structure function
                 V(i_s).(var)(r_lag) = mean(I.^2,'omitnan');     % variance of increments
-                L(i_s).(var)(r_lag) = int_ls_short(I)*dr;       % integral length scale for increments
+                L(i_s).(var)(r_lag) = int_ls_short(I)*S(i_s).dr;% integral length scale for increments
                 S(i_s).N    (r_lag) = sum(~isnan(I));           % number of increment samples
 
             end
         
-            N(i_s).(var) = S(i_s).valid_fraction*S(i_s).length./L(i_s).(var); % number of independent samples
-%             N(i_s).(var) = S(i_s).N*dr./L(i_s).(var);
-            U(i_s).(var) = sqrt( (V(i_s).(var) - S(i_s).(var).^2) ./ N(i_s).(var) );     % uncertainty
+            N(i_s).(var) = S(i_s).valid*S(i_s).length./L(i_s).(var); % number of independent samples
+            % N(i_s).(var) = S(i_s).N*dr./L(i_s).(var); % alternative formula
+            U(i_s).(var) = sqrt( (V(i_s).(var) - S(i_s).(var).^2) ./ N(i_s).(var) ); % uncertainty
               
         end
 
@@ -194,9 +194,7 @@ end
 valid_hum = (MOM.RH_nan_fraction==0);
 
 
-avS = struct([]);
-avN = struct([]);
-avU = struct([]);
+avS = struct([]); avN = struct([]); avU = struct([]);
 
 for i_l = 1:Nlvl
     ind_l = find([S(:).level]'==levels{i_l} & valid_seg);
@@ -204,6 +202,7 @@ for i_l = 1:Nlvl
     avS(i_l,1).level  = string(levels{i_l});
     avS(i_l).number = numel(ind_l);
     avS(i_l).alt    = mean([S(ind_l).alt]);
+    avS(i_l).dr     = mean([S(ind_l).dr]);
     avS(i_l).length = mean([S(ind_l).length]);
     
     for i_v = 1:Nvar
@@ -217,7 +216,7 @@ for i_l = 1:Nlvl
         
         avS(i_l,1).(var) = mean( cat(1,S(ind_lv).(var)), 1);
         avV              = mean( cat(1,V(ind_lv).(var)), 1);
-        avN(i_l,1).(var) = sum( repmat([S(ind_lv).valid_fraction]'.*[S(ind_lv).length]',1,r_maxlag) ...
+        avN(i_l,1).(var) = sum( repmat([S(ind_lv).valid]'.*[S(ind_lv).length]',1,r_maxlag) ...
             ./ cat(1,L(ind_lv).(var)) );
         avU(i_l,1).(var) = sqrt( (avV - avS(i_l).(var).^2) ./ avN(i_l).(var) );
     end
@@ -239,9 +238,11 @@ end
 
 %% Compensate / integrate
 
-r = (1:r_maxlag)*dr;
+Nlvl = size(avS,1);
 
 for i_l = 1:Nlvl
+    r = (1:r_maxlag)*avS(i_l).dr;
+    
     avS(i_l).s3lr = avS(i_l).s3l./r;
     avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
     avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
@@ -276,9 +277,12 @@ plots = { {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
           {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
           {'s3lr','W','s3lrW'}, {'$S_3^L r^{-1}$','$W$','$S_3^L r^{-1}-W$'} };
 
+
+Nlvl = size(avS,1);
+      
 for i_p = 1:size(plots,1)
     for i_l = 1:Nlvl
-        fig = plot_sfc(r,avS(i_l),avU(i_l),plots{i_p,1},[5 6 7],...
+        fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[5 6 7],...
             'XLim',[4 400],'YLim',[1e-6 2e-3]);
         legend(plots{i_p,2},'Interpreter','latex','Location','best')
         title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -291,37 +295,58 @@ end
 %% Calculate dissipation rate
 
 edr_vars = {'uu','vv','ww','Wrs3l'};
-edr_slps = [2/3 2/3 2/3 1];
-edr_cons = [2.0, 2.6, 2.6, 4.0];
+slps = [2/3 2/3 2/3 1];
+cons = [2.0 2.6 2.6 4.0];
 
-edr_fitting_range = [10 60];
-edr_method = "direct";
-edr_fitting_points = 6;
+fit_range = [10 60];
+method = "direct";
+fit_points = 6;
 
+
+Nlvl = size(avS,1);
 Nvar = numel(edr_vars);
 
-for i_v = 1:Nvar
-    [avS,U] = edr_fit(avS,edr_vars{i_v},dr,edr_fitting_range,...
-        'Scaling',edr_slps(i_v),'Factor',edr_cons(i_v),...
-        'Method',edr_method,'FittingPoints',edr_fitting_points,'Uncertainty',U);
+for i_l = 1:Nlvl
+    for i_v = 1:Nvar
+        var = edr_vars{i_v};
+        
+        avS(i_l).(['fit_',var]) = fit_range;
+        avS(i_l).(['slp_',var]) = slps(i_v);
+        avS(i_l).(['con_',var]) = cons(i_v);
+    end
 end
 
+[avS,avU] = calc_edr(avS,avU,edr_vars,'Method',method,'FittingPoints',fit_points);
+
+% for i_v = 1:Nvar
+%     [avS,avU] = edr_fit(avS,edr_vars{i_v},dr,fitting_range,...
+%         'Scaling',slps(i_v),'Factor',cons(i_v),...
+%         'Method',method,'FittingPoints',fitting_points,'Uncertainty',avU);
+% end
+
+
 Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
-    {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l','slp_ww','slp_uu','slp_vv','slp_Wrs3l'})));
+    {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
+    'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
 
 
 
-%% Plot fitted lines
+%% Plot fitted scaling laws
+
+plotpath = 'figures';
+
+
+Nlvl = size(avS,1);
 
 for i_l = 1:Nlvl
     
-    fig = plot_sfc_edr(r,avS(i_l),[],{'uu','vv','ww'},[5 6 7],'XLim',[4 400],'YLim',[1e-3 2e-2]);
+    fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[5 6 7],'XLim',[4 400],'YLim',[1e-3 2e-2]);
     legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'E2_',levels{i_l}],'-dpng','-r300')
     
-    fig = plot_sfc_edr(r,avS(i_l),avU(i_l),{'Wrs3l'},7,'XLim',[4 400],'YLim',[1e-6 2e-3]);
+    fig = plot_sfc_edr(avS(i_l),avU(i_l),{'Wrs3l'},7,'XLim',[4 400],'YLim',[1e-6 2e-3]);
     ylabel('$W-S_3^L r^{-1}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'E3_',levels{i_l}],'-dpng','-r300')

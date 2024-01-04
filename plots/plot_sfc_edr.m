@@ -1,16 +1,13 @@
 
-function [fig,ax] = plot_sfc_edr(r,S,U,vars,colors,varargin)
+function [fig,ax] = plot_sfc_edr(S,U,vars,colors,varargin)
 
 lwu = 1;
 lwl = 1.5;
 ms = 4;
 
-if nargin<5 || isempty(colors)
+if nargin<4 || isempty(colors)
     colors = (1:100);
 end
-% if nargin<5
-%     legs = {};
-% end
 
 
 [fig,ax,co] = fig16x12('loglog',[1 0],varargin{:});
@@ -24,6 +21,7 @@ Nvar = numel(vars);
 for i_l = 1:Nlvl
     
     for i_v = 1:Nvar
+        
         var = vars{i_v};
         c = co((i_l-1)*Nvar+i_v,:);
         
@@ -34,10 +32,11 @@ for i_l = 1:Nlvl
         edr_free  = S(i_l).(strcat('edr_',var,'_free'));
         slp_free  = S(i_l).(strcat('slp_',var,'_free'));
         
+        
+        r = (1:length(S(i_l).(var)))*S(i_l).dr;
         ind_range = find( r>=fit_range(1) & r<=fit_range(2) );
         r_fit     = r(ind_range([1,end]));
-        
-        
+                
         y = S(i_l).(var)./r.^slp;
         plot(r,abs(y),'o','MarkerSize',ms,'Color',c,'MarkerFaceColor',c)
         
@@ -54,11 +53,8 @@ for i_l = 1:Nlvl
 
     end
     
-    xlabel('$r\,[\mathrm{m}]$','Interpreter','latex')
-%     if ~isempty(legs)
-%         legend(legs,'Location','best','Interpreter','latex')
-%     end
-    
 end
+    
+xlabel('$r\,[\mathrm{m}]$','Interpreter','latex')
 
 end
