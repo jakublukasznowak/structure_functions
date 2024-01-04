@@ -1,4 +1,12 @@
 
+% TODO
+% - analyze conditions
+% - justify excluding several segments
+% - clean up edr calculations
+% - organize calculations into functions
+% - 
+
+
 % addpath(pwd,'load','calculate','cloud_mask','plots','utils','utils/yaml_Koch')
 
 
@@ -254,6 +262,8 @@ for i_l = 1:Nlvl
     
     avS(i_l).s3lrW = avS(i_l).s3lr - avS(i_l).W;
     avU(i_l).s3lrW = avU(i_l).s3lr + avU(i_l).W;
+    avS(i_l).Wrs3l = -avS(i_l).s3l + avS(i_l).W.*r;
+    avU(i_l).Wrs3l =  avU(i_l).s3l + avU(i_l).W.*r;
 end
 
 
@@ -278,3 +288,42 @@ end
 
 
 
+%% Calculate dissipation rate
+
+edr_vars = {'uu','vv','ww','Wrs3l'};
+edr_slps = [2/3 2/3 2/3 1];
+edr_cons = [2.0, 2.6, 2.6, 4.0];
+
+edr_fitting_range = [10 60];
+edr_method = "direct";
+edr_fitting_points = 6;
+
+Nvar = numel(edr_vars);
+
+for i_v = 1:Nvar
+    [avS,U] = edr_fit(avS,edr_vars{i_v},dr,edr_fitting_range,...
+        'Scaling',edr_slps(i_v),'Factor',edr_cons(i_v),...
+        'Method',edr_method,'FittingPoints',edr_fitting_points,'Uncertainty',U);
+end
+
+Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
+    {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l','slp_ww','slp_uu','slp_vv','slp_Wrs3l'})));
+
+
+
+%% Plot fitted lines
+
+for i_l = 1:Nlvl
+    
+    fig = plot_sfc_edr(r,avS(i_l),[],{'uu','vv','ww'},[5 6 7],'XLim',[4 400],'YLim',[1e-3 2e-2]);
+    legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    ylabel('$S_2r^{-2/3}$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'E2_',levels{i_l}],'-dpng','-r300')
+    
+    fig = plot_sfc_edr(r,avS(i_l),avU(i_l),{'Wrs3l'},7,'XLim',[4 400],'YLim',[1e-6 2e-3]);
+    ylabel('$W-S_3^L r^{-1}$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'E3_',levels{i_l}],'-dpng','-r300')
+    
+end
