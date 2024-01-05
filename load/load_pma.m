@@ -3,6 +3,10 @@ function [PMA,pma_info] = load_pma(MOM,datapath,pma_vars)
 
 epoch = datetime('2020-01-01 00:00:00.000');
 
+if ~ismember('time',pma_vars)
+    pma_vars = cat(2,{'time'},pma_vars);
+end
+
 
 % Read nc files
 

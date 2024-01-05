@@ -1,6 +1,10 @@
 
 function [MOM,mom_info] = load_mom(datapath,datalevel,dataversion,segtype,mom_vars)
 
+if ~ismember('time',mom_vars)
+    mom_vars = cat(2,{'time'},mom_vars);
+end
+
 
 d = dir([datapath,filesep,'TURBULENCE',filesep,'TURB_MOMENTS',filesep,...
     datalevel,filesep,dataversion,filesep,segtype,filesep,'*.nc']);

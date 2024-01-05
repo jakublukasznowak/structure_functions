@@ -1,21 +1,14 @@
 
-% TODO
-% - analyze conditions
-% - justify excluding several segments
-% - clean up edr calculations
-% - organize calculations into functions
-% - 
+projectpath = pwd;
+
+plotpath = [projectpath,filesep,'figures'];
+
+datapath = mydatapath;
 
 
-% addpath(pwd,'load','calculate','cloud_mask','plots','utils','utils/yaml_Koch')
-
-
-
-%% Load datasets
-
-% MYDATAPATH is the path where you downloaded two datasets:
+% DATAPATH is the path where you downloaded two datasets:
 %
-% MYDATAPATH/TURBLENCE
+% DATAPATH/TURBLENCE
 %
 % Lothon, M. & Brilouet, P. (2020). SAFIRE ATR42: Turbulence Data 25 Hz. Aeris.
 % https://doi.org/10.25326/128
@@ -23,7 +16,7 @@
 % 
 % In this code 'longlegs' L3 v1.9 is used.
 % 
-% MYDATAPATH/CloudComposite
+% DATAPATH/CloudComposite
 %
 % Coutris, P. (2021). SAFIRE ATR42: PMA/Cloud composite dataset. Aeris.
 % https://doi.org/10.25326/237
@@ -31,6 +24,17 @@
 % 
 % In this code v1 is used.
 
+
+% Prepare paths
+
+addpath(genpath(projectpath))
+if ~isfolder(plotpath)
+    mkdir(plotpath)
+end
+
+
+
+%% Load datasets
 
 % List of flights
 
@@ -57,15 +61,15 @@ pma_vars = {'time','LWC','NT','CLOUD_mask'};
 
 % Read data files
 
-SEG = load_seg(mydatapath,'v1.9','longlegs');
+SEG = load_seg(datapath,'v1.9','longlegs');
 SEG = SEG(ismember(SEG.flight,flight_ids) & ismember(SEG.level,levels),:);
 
-[MOM,mom_info] = load_mom(mydatapath,'L3','v1.9','longlegs',mom_vars);
+[MOM,mom_info] = load_mom(datapath,'L3','v1.9','longlegs',mom_vars);
 MOM = join(SEG,MOM,'Keys',{'start','xEnd'});
 
-TURB = load_turb(MOM,mydatapath,'L3','v1.9',turb_vars);
+TURB = load_turb(MOM,datapath,'L3','v1.9',turb_vars);
 
-PMA = load_pma(MOM,mydatapath,pma_vars);
+PMA = load_pma(MOM,datapath,pma_vars);
 
 
 % Calculate auxiliary parameters
@@ -173,12 +177,22 @@ end
 %% Average structure functions at levels
 
 % List of segments to exclude from averaging
-exclude_seg = ["RF17","L2A";
-               "RF09","L1B";
-               "RF19","S1";
-               "RF11","L1A"; % rain + temperature variations + excessive Us
-               "RF17","L1B"]; % rain + temperature variations + excessive Us       
+% chosen based on the manual inspection of the timeseries of altitude,
+% temperature, wind speed and direction, LWC, TAS, heading from 
+% the CORE dataset (not shown here):
+% 
+% CNRM/TRAMM, SAFIRE, Laboratoire d'Aérologie. (2021). SAFIRE ATR42: Core 
+% Data 1Hz - V2. Aeris. https://doi.org/10.25326/298
 
+exclude_seg = ["RF19","S1";   % (surface) altitude changes + temperature drop
+               "RF09","L1B";  % (mid-subcloud) temperature drop + wind direction variations + TAS changes
+               "RF11","L2B";  % (mid-subcloud) rain + TAS changes NEW
+               "RF17","L2A";  % (mid-subcloud) intensive rain + temperature drop + TAS changes
+               "RF11","L1A";  % (top-subcloud) intensive rain
+               "RF17","L1B";  % (top-subcloud) intensive rain + temperature variations + TAS changes
+               "RF17","R2B";  % (cloud-base) heavy rain NEW
+               "RF18","R1B"]; % (cloud-base) heavy rain NEW
+ 
 
 Nseg = size(S,1);
 Nlvl = numel(levels);
@@ -271,8 +285,6 @@ end
 
 %% Plot structure functions
 
-plotpath = 'figures';
-
 plots = { {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
           {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
           {'s3lr','W','s3lrW'}, {'$S_3^L r^{-1}$','$W$','$S_3^L r^{-1}-W$'} };
@@ -309,7 +321,6 @@ Nvar = numel(edr_vars);
 for i_l = 1:Nlvl
     for i_v = 1:Nvar
         var = edr_vars{i_v};
-        
         avS(i_l).(['fit_',var]) = fit_range;
         avS(i_l).(['slp_',var]) = slps(i_v);
         avS(i_l).(['con_',var]) = cons(i_v);
@@ -318,13 +329,6 @@ end
 
 [avS,avU] = calc_edr(avS,avU,edr_vars,'Method',method,'FittingPoints',fit_points);
 
-% for i_v = 1:Nvar
-%     [avS,avU] = edr_fit(avS,edr_vars{i_v},dr,fitting_range,...
-%         'Scaling',slps(i_v),'Factor',cons(i_v),...
-%         'Method',method,'FittingPoints',fitting_points,'Uncertainty',avU);
-% end
-
-
 Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
     {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
     'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
@@ -332,9 +336,6 @@ Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
 
 
 %% Plot fitted scaling laws
-
-plotpath = 'figures';
-
 
 Nlvl = size(avS,1);
 

@@ -3,6 +3,9 @@ function [TURB,turb_info] = load_turb(MOM,datapath,datalevel,dataversion,turb_va
 
 epoch = datetime('2020-01-01 00:00:00.000');
 
+if ~ismember('time',turb_vars)
+    turb_vars = cat(2,{'time'},turb_vars);
+end
 
 Nseg = size(MOM,1);
 TURB = cell(Nseg,1);
