@@ -1,4 +1,8 @@
 
+% TODO
+% - correct number of points and valid fractions
+
+
 projectpath = pwd;
 
 plotpath = [projectpath,filesep,'figures'];
@@ -111,7 +115,10 @@ sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
             'wBq',{'W_DET','Bq'};
             'uu', {'VY_DET','VY_DET'};
             'vv', {'UX_DET','UX_DET'};
-            'ww', {'W_DET','W_DET'}
+            'ww', {'W_DET','W_DET'};
+            'uuW',{'VY_DET','VY_DET','W_MID'};
+            'vvW',{'UX_DET','UX_DET','W_MID'};
+            'wwW',{'W_DET','W_DET','W_MID'}
             };
 
 % Assume fixed distance between points
@@ -119,6 +126,16 @@ MOM.dr(:) = 4;
 
 % Consider max lag of 400 m
 r_maxlag = 400/4;
+
+
+% Calculate velocity in between data points
+Nseg = size(TURB,1);
+for i_s = 1:Nseg
+    Lt = length(TURB(i_s).time);
+    TURB(i_s).W_MID = interp1(TURB(i_s).W_DET,0.5:0.5:Lt)';
+    TURB(i_s).OR_mask_ext_mid = (interp1(TURB(i_s).W_DET,0.5:0.5:Lt)'>0);
+end
+    
 
 
 S = table2struct(MOM(:,{'flight','name','level','alt','dr','length','valid'}));
@@ -135,16 +152,23 @@ for i_v = 1:Nvar
     fprintf('>\n')
     
     for i_s = 1:Nseg
+        
+        Lt = length(TURB(i_s).time);
     
-        A = cell2mat( cellfun(@(v) TURB(i_s).(v),sfc_vars{i_v,2},'UniformOutput',false) );
+        A = cellfun(@(v) TURB(i_s).(v),sfc_vars{i_v,2},'UniformOutput',false);
+        La = cellfun(@length,A);
+        
+        difA = cell2mat(A(La==Lt));
+        midA = cell2mat(A(La>Lt));
         
         if S(i_s).level == "cloud-base"
-            A(TURB(i_s).OR_mask_ext,:) = nan; % mask cloudy points
+            difA(TURB(i_s).OR_mask_ext,:) = nan; % mask cloudy points
+            if ~isempty(midA)
+                midA(TURB(i_s).OR_mask_ext_mid,:) = nan; % mask cloudy points
+            end
         end
         
-        if ~any(all(isnan(A),1))
-            
-            La = size(A,1);
+        if ~any(cellfun(@(x) all(isnan(x),1),A))
             
             S(i_s).(var) = nan(1,r_maxlag);
             V(i_s).(var) = nan(1,r_maxlag);
@@ -152,14 +176,21 @@ for i_v = 1:Nvar
             S(i_s).N     = nan(1,r_maxlag);
 
             for r_lag = 1:r_maxlag
-
-                I = prod( A(r_lag+1:La,:) - A(1:La-r_lag,:), 2 ); % increments
+                
+                difI = prod( difA(r_lag+1:Lt,:)-difA(1:Lt-r_lag,:) ,2);
+                
+                if ~isempty(midA)
+                    midI = prod( midA(r_lag+1:2:2*Lt-r_lag,:) ,2);    
+                else
+                    midI = 1;
+                end
+                
+                I = difI.*midI; % increments
                 
                 S(i_s).(var)(r_lag) = mean(I,'omitnan');        % structure function
                 V(i_s).(var)(r_lag) = mean(I.^2,'omitnan');     % variance of increments
                 L(i_s).(var)(r_lag) = int_ls_short(I)*S(i_s).dr;% integral length scale for increments
                 S(i_s).N    (r_lag) = sum(~isnan(I));           % number of increment samples
-
             end
         
             N(i_s).(var) = S(i_s).valid*S(i_s).length./L(i_s).(var); % number of independent samples
@@ -246,6 +277,12 @@ for i_l = 1:Nlvl
         avS(i_l).wQ  = avS(i_l).wBt + avS(i_l).wBq;
         avU(i_l).wQ  = sqrt(avU(i_l).wBt.^2 + avU(i_l).wBq.^2);
     end
+    
+    % transport
+    if all(ismember({'uuW','vvW','wwW'},fieldnames(avS)))
+        avS(i_l).s2W  = avS(i_l).uuW + avS(i_l).vvW + avS(i_l).wwW;
+        avU(i_l).s2W  = sqrt(avS(i_l).uuW.^2 + avS(i_l).vvW.^2 + avS(i_l).wwW.^2);
+    end
 end
 
 
@@ -270,10 +307,12 @@ for i_l = 1:Nlvl
     avS(i_l).W  = 6*cumtrapz(r,avS(i_l).wB .*r.^2) ./ r.^3;
     avS(i_l).Wt = 6*cumtrapz(r,avS(i_l).wBt.*r.^2) ./ r.^3;
     avS(i_l).Wq = 6*cumtrapz(r,avS(i_l).wBq.*r.^2) ./ r.^3;
+    avS(i_l).T  = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
     
     avU(i_l).W  = 6*cumtrapz(r,avU(i_l).wB .*r.^2) ./ r.^3;
     avU(i_l).Wt = 6*cumtrapz(r,avU(i_l).wBt.*r.^2) ./ r.^3;
     avU(i_l).Wq = 6*cumtrapz(r,avU(i_l).wBq.*r.^2) ./ r.^3;
+    avU(i_l).T  = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
     
     avS(i_l).s3lrW = avS(i_l).s3lr - avS(i_l).W;
     avU(i_l).s3lrW = avU(i_l).s3lr + avU(i_l).W;
@@ -301,6 +340,11 @@ for i_p = 1:size(plots,1)
         print(fig,[plotpath,filesep,'S_',levels{i_l},'_',plots{i_p,1}{1}],'-dpng','-r300')
     end
 end
+
+fig = plot_sfc(avS,avU,{'T'},[1 2 3 4],'XLim',[4 400]);
+legend(levels,'Interpreter','latex','Location','best')
+title('Integrated transport')
+print(fig,[plotpath,filesep,'S_transport'],'-dpng','-r300')
 
 
 
