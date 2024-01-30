@@ -1,6 +1,4 @@
 
-% TODO
-% - correct number of points and valid fractions
 
 % MYPROJECTPATH is the path where you downloaded the codes
 %
@@ -119,17 +117,6 @@ MOM.dr(:) = 4;
 r_maxlag = 400/4;
 
 
-% Calculate velocity in between data points W_MID -> nieaktualne, to było
-% źle
-% Nseg = size(TURB,1);
-% for i_s = 1:Nseg
-%     Lt = length(TURB(i_s).time);
-%     TURB(i_s).W_MID = interp1(TURB(i_s).W_DET,0.5:0.5:Lt)';
-%     TURB(i_s).OR_mask_mid = (interp1(double(TURB(i_s).OR_mask),0.5:0.5:Lt)'>0);
-% end
-    
-
-
 S = table2struct(MOM(:,{'flight','name','level','alt','dr','length','OR_clear_fraction'}));
 V = S; L = S; N = S; U = S;
 
@@ -156,17 +143,6 @@ for i_v = 1:Nvar
     
         A = cell2mat(cellfun(@(v) TURB(i_s).(v),varlist,'UniformOutput',false));
         
-        % Stare obliczenia wX
-%         La = cellfun(@length,A);
-%         difA = cell2mat(A(La==Lt));
-%         midA = cell2mat(A(La>Lt));
-%         if S(i_s).level == "cloud-base"
-%             difA(TURB(i_s).OR_mask,:) = nan; 
-%             if ~isempty(midA)
-%                 midA(TURB(i_s).OR_mask_mid,:) = nan; 
-%             end
-%         end
-
         % Mask cloudy points
         if S(i_s).level == "cloud-base"
             A(TURB(i_s).OR_mask,:) = nan;
@@ -184,7 +160,6 @@ for i_v = 1:Nvar
                 difI = prod( A(r_lag+1:Lt,difFlag)-A(1:Lt-r_lag,difFlag) ,2);
                 
                 if sum(midFlag)>0
-%                     midI = prod( midA(r_lag+1:2:2*Lt-r_lag,:) ,2); STARE WX
                     midI = prod( 0.5*(A(r_lag+1:Lt,midFlag)+A(1:Lt-r_lag,midFlag)) ,2);
                 else
                     midI = 1;
@@ -344,12 +319,10 @@ for i_v = 1:Nvar
         'FitRange',[10 60],'Method','direct','FitPoints',6);
 end
 
-
-
-
-% Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
-%     {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
-%     'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
+% Table with dissipation values
+edr_table = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
+    {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
+    'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
 
 
 
@@ -403,13 +376,7 @@ for i_p = 1:size(plots,1)
 end
 
 
-% fig = plot_sfc(avS,avU,{'T'},[1 2 3 4],'XLim',[4 400]);
-% legend(levels,'Interpreter','latex','Location','best')
-% title('Integrated transport')
-% print(fig,[plotpath,filesep,'S_transport'],'-dpng','-r300')
-
-
-%% Fitted dissipation
+%% Fitting dissipation
 
 Nlvl = size(avS,1);
 
@@ -427,3 +394,29 @@ for i_l = 1:Nlvl
     print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
     
 end
+
+
+
+%% OLD
+
+% Stare obliczenia wX - niepoprawne
+%
+% Calculate velocity in between data points W_MID 
+% Nseg = size(TURB,1);
+% for i_s = 1:Nseg
+%     Lt = length(TURB(i_s).time);
+%     TURB(i_s).W_MID = interp1(TURB(i_s).W_DET,0.5:0.5:Lt)';
+%     TURB(i_s).OR_mask_mid = (interp1(double(TURB(i_s).OR_mask),0.5:0.5:Lt)'>0);
+% end
+% (...)        
+%         La = cellfun(@length,A);
+%         difA = cell2mat(A(La==Lt));
+%         midA = cell2mat(A(La>Lt));
+%         if S(i_s).level == "cloud-base"
+%             difA(TURB(i_s).OR_mask,:) = nan; 
+%             if ~isempty(midA)
+%                 midA(TURB(i_s).OR_mask_mid,:) = nan; 
+%             end
+%         end
+% (...)
+%          midI = prod( midA(r_lag+1:2:2*Lt-r_lag,:) ,2);
