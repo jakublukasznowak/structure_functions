@@ -2,6 +2,7 @@
 function [fig,ax] = plot_sfc(S,U,vars,colors,varargin)
 
 lw = 1;
+lwb = 1.5;
 ms = 4;
 
 if nargin<4 || isempty(colors)
@@ -24,10 +25,16 @@ for i_l = 1:Nlvl
         c = co((i_l-1)*Nvar+i_v,:);
         
         y = S(i_l).(var);
-        r = (1:length(y))*S(i_l).dr;
-        plot(r(y>=0), y(y>=0),'o','Color',c,'MarkerSize',ms,'MarkerFaceColor',c,'HandleVisibility','off')
-        plot(r(y<0), -y(y<0), 'o','Color',c,'MarkerSize',ms,'HandleVisibility','off')
-        plot(nan,nan,'o','Color',c,'MarkerFaceColor',c)
+        if isscalar(y)
+            y = y*[1 1];
+            r = [4 400];
+            plot(r,y,'-','Color',c,'LineWidth',lwb)
+        else
+            r = (1:length(y))*S(i_l).dr;
+            plot(r(y>=0), y(y>=0),'o','Color',c,'MarkerSize',ms,'MarkerFaceColor',c,'HandleVisibility','off')
+            plot(r(y<0), -y(y<0), 'o','Color',c,'MarkerSize',ms,'HandleVisibility','off')
+            plot(nan,nan,'o','Color',c,'MarkerFaceColor',c)
+        end
         
         if ~isempty(U)
             u = U(i_l).(var);

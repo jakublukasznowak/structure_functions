@@ -37,7 +37,7 @@ end
 
 
 % List of levels
-levels  = {'cloud-base','top-subcloud','mid-subcloud','near-surface'};
+levels  = {'cloud-base','cloud-base-noclouds','top-subcloud','mid-subcloud','near-surface'};
 
 % List of flights
 flight_ids = num2cell(num2str((9:19)','RF%02d'),2); % RF09 - RF19
@@ -115,8 +115,14 @@ MOM.dr(:) = 4;
 % Consider max lag of 400 m
 r_maxlag = 400/4;
 
+% Duplicate cloud-base segments
+Nseg = size(MOM,1);
+MOM2 = [MOM; MOM(MOM.level=="cloud-base",:)];
+MOM2.level(Nseg+1:end) = "cloud-base-noclouds";
+TURB2 = [TURB; TURB([TURB(:).level]=="cloud-base")];
 
-S = table2struct(MOM(:,{'flight','name','level','alt','dr','length','OR_clear_fraction'}));
+
+S = table2struct(MOM2(:,{'flight','name','level','alt','dr','length','OR_clear_fraction'}));
 V = S; L = S; N = S; U = S;
 
 Nseg = size(S,1);
@@ -138,13 +144,13 @@ for i_v = 1:Nvar
 
     for i_s = 1:Nseg
         
-        Lt = length(TURB(i_s).time);
+        Lt = length(TURB2(i_s).time);
     
-        A = cell2mat(cellfun(@(v) TURB(i_s).(v),varlist,'UniformOutput',false));
+        A = cell2mat(cellfun(@(v) TURB2(i_s).(v),varlist,'UniformOutput',false));
         
         % Mask cloudy points
-        if S(i_s).level == "cloud-base"
-            A(TURB(i_s).OR_mask,:) = nan;
+        if S(i_s).level == "cloud-base-noclouds"
+            A(TURB2(i_s).OR_mask,:) = nan;
         end
         
         if ~any(all(isnan(A),1))
@@ -218,7 +224,7 @@ for i_e = 1:size(exclude_seg,1)
 end
 
 % Segments with correct humidity measurement
-valid_hum = (MOM.RH_nan_fraction==0);
+valid_hum = (MOM2.RH_nan_fraction==0);
 
 
 avS = struct([]); avN = struct([]); avU = struct([]);
@@ -323,6 +329,10 @@ edr_table = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
     {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
     'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
 
+for i_l = 1:size(avS,1)
+    avS(i_l).edr_s2_4 = avS(i_l).edr_s2*4;
+    avU(i_l).edr_s2_4 = avU(i_l).edr_s2*4;
+end
 
 
 %% Estimate transport
@@ -331,15 +341,23 @@ edr_table = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
 
 Nlvl = size(avS,1);
 for i_l = 1:Nlvl
-    avS(i_l).Tres = avS(i_l).s3lr - avS(i_l).W - 4*avS(i_l).edr_s2;
+    avS(i_l).Tres = -avS(i_l).s3lr + avS(i_l).W - 4*avS(i_l).edr_s2;
     avU(i_l).Tres = sqrt( avU(i_l).s3lr.^2 + avU(i_l).W.^2 + 4*avU(i_l).edr_s2.^2 );
 end
 
 % from differences between levels
 
-for i_l = 1:Nlvl-1
-    avS(i_l).Tdif = (avS(i_l+1).Ti-avS(i_l).Ti) / (avS(i_l+1).alt-avS(i_l).alt);
-    avU(i_l).Tdif = sqrt(avU(i_l+1).Ti.^2+avU(i_l).Ti.^2) / (avS(i_l+1).alt-avS(i_l).alt);
+level_pairs = {'cloud-base','top-subcloud';
+               'cloud-base-noclouds','top-subcloud';
+               'top-subcloud','mid-subcloud';
+               'mid-subcloud','near-surface'};
+
+for i_l = 1:size(level_pairs,1)
+    i1 = find([avS(:).level]==level_pairs{i_l,1});
+    i2 = find([avS(:).level]==level_pairs{i_l,2});
+    
+    avS(i1).Tdif = (avS(i1).Ti-avS(i2).Ti) / (avS(i1).alt-avS(i2).alt);
+    avU(i1).Tdif = sqrt(avU(i1).Ti.^2+avU(i2).Ti.^2) / (avS(i1).alt-avS(i2).alt);
 end
 
 
@@ -348,7 +366,7 @@ end
 
 %% Overview of the segments
 
-plot_seg_overview(MOM,levels,false);
+plot_seg_overview(MOM,setdiff(levels,{'cloud-base-noclouds'},'stable'),false);
 print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 
 
@@ -357,7 +375,7 @@ print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 plots = { 
 %     {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
     {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
-    {'s3lr','s3lrW'}, {'$S_3^L r^{-1}$','$S_3^L r^{-1}-W$'};
+    {'s3lr','s3lrW','edr_s2_4'}, {'$S_3^L r^{-1}$','$S_3^L r^{-1}-W$','$4\epsilon$'};
     {'Tres','Tdif'}, {'Tres','Tdif'}
     };
 
