@@ -2,17 +2,11 @@
 % TODO
 % - correct number of points and valid fractions
 
-
-projectpath = pwd;
-
-plotpath = [projectpath,filesep,'figures'];
-
-datapath = mydatapath;
-
-
-% DATAPATH is the path where you downloaded two datasets:
+% MYPROJECTPATH is the path where you downloaded the codes
 %
-% DATAPATH/TURBLENCE
+% MYDATAPATH is the path where you downloaded two datasets:
+%
+% MYDATAPATH/TURBLENCE
 %
 % Lothon, M. & Brilouet, P. (2020). SAFIRE ATR42: Turbulence Data 25 Hz. Aeris.
 % https://doi.org/10.25326/128
@@ -20,7 +14,7 @@ datapath = mydatapath;
 % 
 % In this code 'longlegs' L3 v1.9 is used.
 % 
-% DATAPATH/CloudComposite
+% MYDATAPATH/CloudComposite
 %
 % Coutris, P. (2021). SAFIRE ATR42: PMA/Cloud composite dataset. Aeris.
 % https://doi.org/10.25326/237
@@ -31,7 +25,11 @@ datapath = mydatapath;
 
 % Prepare paths
 
-addpath(genpath(projectpath))
+addpath(genpath(myprojectpath))
+
+datapath = mydatapath;
+
+plotpath = [myprojectpath,filesep,'figures'];
 if ~isfolder(plotpath)
     mkdir(plotpath)
 end
@@ -40,66 +38,69 @@ end
 
 %% Load datasets
 
-% List of flights
-
-flight_ids = num2cell(num2str((9:19)','RF%02d'),2); % RF09 - RF19
 
 % List of levels
-
 levels  = {'cloud-base','top-subcloud','mid-subcloud','near-surface'};
 
-% List of variables from turbulent moments dataset
+% List of flights
+flight_ids = num2cell(num2str((9:19)','RF%02d'),2); % RF09 - RF19
 
+% List of variables from turbulent moments dataset
 mom_vars = {'alt','time_start','time_end',...
     'MEAN_P','MEAN_THETA','MEAN_MR',...
     'MEAN_WSPD','MEAN_WDIR','MEAN_TAS','MEAN_THDG'};
 
 % List of variables from turbulent fluctuations dataset
-
 turb_vars = {'time','W_DET','UX_DET','VY_DET','T_DET','MR_DET'};
 
 % List of variables from cloud composite dataset
-
 pma_vars = {'time','LWC','NT','CLOUD_mask'};
 
 
 % Read data files
 
-SEG = load_seg(datapath,'v1.9','longlegs');
+% Flight segmentation
+disp('Load flight segmentation ...')
+SEG = load_atr_seg(datapath,'v1.9','longlegs');                          
 SEG = SEG(ismember(SEG.flight,flight_ids) & ismember(SEG.level,levels),:);
 
-[MOM,mom_info] = load_mom(datapath,'L3','v1.9','longlegs',mom_vars);
-MOM = join(SEG,MOM,'Keys',{'start','xEnd'});
+% Mean values and moments
+disp('Load mean values and moments ...')
+[MOM,mom_info] = load_atr_mom(datapath,'L3','v1.9','longlegs',mom_vars); 
+MOM = join(SEG,MOM,'Keys',{'start','end'});
 
-TURB = load_turb(MOM,datapath,'L3','v1.9',turb_vars);
+% Turbulent fluctuations
+disp('Load turbulence data ...')
+[TURB,turb_info] = load_atr_turb(MOM,datapath,'L3','v1.9',turb_vars);
 
-PMA = load_pma(MOM,datapath,pma_vars);
+% Microphysics
+disp('Load microphysics data ...')
+PMA = load_atr_pma(MOM,datapath,pma_vars);
 
 
-% Calculate auxiliary parameters
+% Calculate additional parameters
 
-[MOM.dir2,MOM.dir4] = dev_angle(MOM.MEAN_THDG,MOM.MEAN_WDIR);
-MOM.dr = MOM.MEAN_TAS./[TURB.fsamp]';
-MOM.length = (MOM.time_end-MOM.time_start).*MOM.MEAN_TAS;
+% Separation distance
+% MOM.dr = MOM.MEAN_TAS./[TURB.fsamp]';
 
-TURB = calc_thermo(TURB,MOM); % thermodynamic parameters
-
+% Thermodynamics (incl buoyancy)
+TURB = calc_thermo(TURB,MOM);
 
 % Cloud masks
 % (1) from PMA dataset based on LWC and interpolated to 25 Hz
 % (2) based on RH>98%
-% both extended in front and behind each cloud by its 1 width
-% (3) any of the two extended masks
-
+% [both extended in front and behind each cloud by its 1 width]
+% (3) union of the two extended masks
 [TURB,MOM] = cloud_mask(TURB,MOM,PMA,98,1);
 
-MOM.valid = 1 - MOM.OR_cloud_fraction;
-MOM.valid(MOM.level~="cloud-base") = 1;
+MOM.OR_clear_fraction = 1 - MOM.OR_cloud_fraction;
+MOM.OR_clear_fraction(MOM.level~="cloud-base") = 1;
 
 
 % Plot overview of the segments
 
-plot_seg_overview(MOM);
+plot_seg_overview(MOM,levels,false);
+print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 
 
 

@@ -1,11 +1,5 @@
 
-function SEG = load_seg (datapath,dataversion,segtype)
-
-
-d = dir([datapath,filesep,'TURBULENCE',filesep,'YAML',filesep,...
-    dataversion,filesep,'yaml_',segtype,filesep,'*.yaml']);
-Nf = numel(d);
-
+function SEG = load_atr_seg (datapath,dataversion,segtype)
 
 % Level labels
 level_dict = [
@@ -19,8 +13,12 @@ level_dict = [
     "Stratiform layer",   "cloud-top"];
 
 
+d = dir([datapath,filesep,'TURBULENCE',filesep,'YAML',filesep,...
+    dataversion,filesep,'yaml_',segtype,filesep,'*.yaml']);
+Nf = numel(d);
+
 SEG = cell(Nf,1);
-for i_f = 1:numel(d)
+for i_f = 1:Nf
     fprintf('Load %s\n',d(i_f).name)
     yml = yaml.loadFile([d(i_f).folder,filesep,d(i_f).name],'ConvertToArray',true);
     for i_s = 1:numel(yml.legs)
@@ -32,6 +30,12 @@ for i_f = 1:numel(d)
 end
 
 SEG = cat(1,SEG{:});
-SEG = struct2table(orderfields(SEG,{'flight','name','level','type','kind','start','xEnd'}));
+SEG = struct2table(SEG);
+
+SEG.end = SEG.xEnd;
+SEG.xEnd = [];
+
+frontfields = {'flight','name','level','type','start','end'};
+SEG = movevars(SEG,frontfields,'Before',1);
 
 end

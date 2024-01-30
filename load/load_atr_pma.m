@@ -1,5 +1,5 @@
 
-function [PMA,pma_info] = load_pma(MOM,datapath,pma_vars)
+function [PMA,pma_info] = load_atr_pma(MOM,datapath,pma_vars)
 
 epoch = datetime('2020-01-01 00:00:00.000');
 
@@ -47,7 +47,7 @@ for i_s = 1:Nseg
     
     indF = find([pma(:).flight]==MOM.flight(i_s));
     ind1 = find(pma(indF).time>=MOM.start(i_s),1,'first');
-    ind2 = find(pma(indF).time<=MOM.xEnd(i_s),1,'last');
+    ind2 = find(pma(indF).time<=MOM.end(i_s),1,'last');
     
     for i_v = 1:numel(pma_info(indF).Variables)
         

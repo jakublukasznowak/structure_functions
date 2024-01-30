@@ -10,7 +10,7 @@ if nargin<3
     maxlag = Lx-1;
 end
 
-if nargin<2
+if nargin<2 || isempty(y)
     y = x;
 end
 
