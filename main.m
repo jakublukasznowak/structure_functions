@@ -1,5 +1,4 @@
 
-
 % MYPROJECTPATH is the path where you downloaded the codes
 %
 % MYDATAPATH is the path where you downloaded two datasets:
