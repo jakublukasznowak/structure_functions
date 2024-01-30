@@ -39,10 +39,10 @@ for i_s = 1:Nseg
     
     sum_mask = sum([TURB(i_s).PMA_mask_ext,TURB(i_s).RH_mask_ext],2,'omitnan');
     
-    TURB(i_s).OR_mask_ext = (sum_mask>0);
-    TURB(i_s).OR_mask_ext(isnan(sum_mask)) = true; % Assume cloud if both masks are nan
+    TURB(i_s).OR_mask = (sum_mask>0);
+    TURB(i_s).OR_mask(isnan(sum_mask)) = true; % Assume cloud if both masks are nan
     
-    MOM.OR_cloud_fraction(i_s) = sum(TURB(i_s).OR_mask_ext) / length(TURB(i_s).OR_mask_ext);
+    MOM.OR_cloud_fraction(i_s) = sum(TURB(i_s).OR_mask) / length(TURB(i_s).OR_mask);
     
 end
 

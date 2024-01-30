@@ -80,10 +80,7 @@ PMA = load_atr_pma(MOM,datapath,pma_vars);
 
 % Calculate additional parameters
 
-% Separation distance
-% MOM.dr = MOM.MEAN_TAS./[TURB.fsamp]';
-
-% Thermodynamics (incl buoyancy)
+% Thermodynamics (including buoyancy)
 TURB = calc_thermo(TURB,MOM);
 
 % Cloud masks
@@ -97,17 +94,10 @@ MOM.OR_clear_fraction = 1 - MOM.OR_cloud_fraction;
 MOM.OR_clear_fraction(MOM.level~="cloud-base") = 1;
 
 
-% Plot overview of the segments
 
-plot_seg_overview(MOM,levels,false);
-print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
-
-
-
-%% Calculate structure functions
+%% Calculate SFC with uncertainties for individual segments
 
 % List of structure functions
-
 sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
             'vvu',{'UX_DET','UX_DET','VY_DET'};
             'wwu',{'W_DET','W_DET','VY_DET'};
@@ -117,9 +107,9 @@ sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
             'uu', {'VY_DET','VY_DET'};
             'vv', {'UX_DET','UX_DET'};
             'ww', {'W_DET','W_DET'};
-            'uuW',{'VY_DET','VY_DET','W_MID'};
-            'vvW',{'UX_DET','UX_DET','W_MID'};
-            'wwW',{'W_DET','W_DET','W_MID'}
+            'uuW',{'VY_DET','VY_DET','X_W_DET'};
+            'vvW',{'UX_DET','UX_DET','X_W_DET'};
+            'wwW',{'W_DET','W_DET','X_W_DET'}
             };
 
 % Assume fixed distance between points
@@ -129,17 +119,18 @@ MOM.dr(:) = 4;
 r_maxlag = 400/4;
 
 
-% Calculate velocity in between data points
-Nseg = size(TURB,1);
-for i_s = 1:Nseg
-    Lt = length(TURB(i_s).time);
-    TURB(i_s).W_MID = interp1(TURB(i_s).W_DET,0.5:0.5:Lt)';
-    TURB(i_s).OR_mask_ext_mid = (interp1(TURB(i_s).W_DET,0.5:0.5:Lt)'>0);
-end
+% Calculate velocity in between data points W_MID -> nieaktualne, to było
+% źle
+% Nseg = size(TURB,1);
+% for i_s = 1:Nseg
+%     Lt = length(TURB(i_s).time);
+%     TURB(i_s).W_MID = interp1(TURB(i_s).W_DET,0.5:0.5:Lt)';
+%     TURB(i_s).OR_mask_mid = (interp1(double(TURB(i_s).OR_mask),0.5:0.5:Lt)'>0);
+% end
     
 
 
-S = table2struct(MOM(:,{'flight','name','level','alt','dr','length','valid'}));
+S = table2struct(MOM(:,{'flight','name','level','alt','dr','length','OR_clear_fraction'}));
 V = S; L = S; N = S; U = S;
 
 Nseg = size(S,1);
@@ -148,28 +139,40 @@ Nvar = size(sfc_vars,1);
 for i_v = 1:Nvar
     
     var = sfc_vars{i_v,1};
-    fprintf('S_%s = < ',var)
-    fprintf('d %s ',sfc_vars{i_v,2}{:})
-    fprintf('>\n')
+    varlist = sfc_vars{i_v,2};
     
+    midFlag = startsWith(varlist,'X_');
+    difFlag = ~startsWith(varlist,'X_');
+    varlist(midFlag) = extractAfter(varlist(midFlag),'X_');
+    
+    fprintf('S_%s = < ',var)
+    fprintf('%s_X ',varlist{midFlag})
+    fprintf('d %s ',varlist{difFlag})
+    fprintf('>\n')
+
     for i_s = 1:Nseg
         
         Lt = length(TURB(i_s).time);
     
-        A = cellfun(@(v) TURB(i_s).(v),sfc_vars{i_v,2},'UniformOutput',false);
-        La = cellfun(@length,A);
+        A = cell2mat(cellfun(@(v) TURB(i_s).(v),varlist,'UniformOutput',false));
         
-        difA = cell2mat(A(La==Lt));
-        midA = cell2mat(A(La>Lt));
-        
+        % Stare obliczenia wX
+%         La = cellfun(@length,A);
+%         difA = cell2mat(A(La==Lt));
+%         midA = cell2mat(A(La>Lt));
+%         if S(i_s).level == "cloud-base"
+%             difA(TURB(i_s).OR_mask,:) = nan; 
+%             if ~isempty(midA)
+%                 midA(TURB(i_s).OR_mask_mid,:) = nan; 
+%             end
+%         end
+
+        % Mask cloudy points
         if S(i_s).level == "cloud-base"
-            difA(TURB(i_s).OR_mask_ext,:) = nan; % mask cloudy points
-            if ~isempty(midA)
-                midA(TURB(i_s).OR_mask_ext_mid,:) = nan; % mask cloudy points
-            end
+            A(TURB(i_s).OR_mask,:) = nan;
         end
         
-        if ~any(cellfun(@(x) all(isnan(x),1),A))
+        if ~any(all(isnan(A),1))
             
             S(i_s).(var) = nan(1,r_maxlag);
             V(i_s).(var) = nan(1,r_maxlag);
@@ -178,10 +181,11 @@ for i_v = 1:Nvar
 
             for r_lag = 1:r_maxlag
                 
-                difI = prod( difA(r_lag+1:Lt,:)-difA(1:Lt-r_lag,:) ,2);
+                difI = prod( A(r_lag+1:Lt,difFlag)-A(1:Lt-r_lag,difFlag) ,2);
                 
-                if ~isempty(midA)
-                    midI = prod( midA(r_lag+1:2:2*Lt-r_lag,:) ,2);    
+                if sum(midFlag)>0
+%                     midI = prod( midA(r_lag+1:2:2*Lt-r_lag,:) ,2); STARE WX
+                    midI = prod( 0.5*(A(r_lag+1:Lt,midFlag)+A(1:Lt-r_lag,midFlag)) ,2);
                 else
                     midI = 1;
                 end
@@ -191,12 +195,15 @@ for i_v = 1:Nvar
                 S(i_s).(var)(r_lag) = mean(I,'omitnan');        % structure function
                 V(i_s).(var)(r_lag) = mean(I.^2,'omitnan');     % variance of increments
                 L(i_s).(var)(r_lag) = int_ls_short(I)*S(i_s).dr;% integral length scale for increments
-                S(i_s).N    (r_lag) = sum(~isnan(I));           % number of increment samples
+                S(i_s).N    (r_lag) = sum(~isnan(I));           % number of valid samples
             end
-        
-            N(i_s).(var) = S(i_s).valid*S(i_s).length./L(i_s).(var); % number of independent samples
-            % N(i_s).(var) = S(i_s).N*dr./L(i_s).(var); % alternative formula
-            U(i_s).(var) = sqrt( (V(i_s).(var) - S(i_s).(var).^2) ./ N(i_s).(var) ); % uncertainty
+            
+            % number of independent samples
+%             N(i_s).(var) = S(i_s).N*S(i_s).dr./L(i_s).(var); 
+            N(i_s).(var) = S(i_s).OR_clear_fraction*S(i_s).length./L(i_s).(var); 
+            
+            % uncertainty
+            U(i_s).(var) = sqrt( (V(i_s).(var) - S(i_s).(var).^2) ./ N(i_s).(var) ); 
               
         end
 
@@ -206,7 +213,7 @@ end
 
 
 
-%% Average structure functions at levels
+%% Average SFC at 4 characteristic levels
 
 % List of segments to exclude from averaging
 % chosen based on the manual inspection of the timeseries of altitude,
@@ -262,7 +269,8 @@ for i_l = 1:Nlvl
         
         avS(i_l,1).(var) = mean( cat(1,S(ind_lv).(var)), 1);
         avV              = mean( cat(1,V(ind_lv).(var)), 1);
-        avN(i_l,1).(var) = sum( repmat([S(ind_lv).valid]'.*[S(ind_lv).length]',1,r_maxlag) ...
+%         avN(i_l,1).(var) = sum( cat(1,N(ind_lv).(var)) ./ cat(1,L(ind_lv).(var)) );
+        avN(i_l,1).(var) = sum( repmat([S(ind_lv).OR_clear_fraction]'.*[S(ind_lv).length]',1,r_maxlag) ...
             ./ cat(1,L(ind_lv).(var)) );
         avU(i_l,1).(var) = sqrt( (avV - avS(i_l).(var).^2) ./ avN(i_l).(var) );
     end
@@ -273,7 +281,7 @@ for i_l = 1:Nlvl
         avU(i_l).s3l = 3*sqrt( avU(i_l).uuu.^2 + avU(i_l).vvu.^2 + avU(i_l).wwu.^2 );
     end
     
-    % wBt + wBq
+    % wBt, wBq
     if all(ismember({'wBt','wBq'},fieldnames(avS)))
         avS(i_l).wQ  = avS(i_l).wBt + avS(i_l).wBq;
         avU(i_l).wQ  = sqrt(avU(i_l).wBt.^2 + avU(i_l).wBq.^2);
@@ -308,12 +316,12 @@ for i_l = 1:Nlvl
     avS(i_l).W  = 6*cumtrapz(r,avS(i_l).wB .*r.^2) ./ r.^3;
     avS(i_l).Wt = 6*cumtrapz(r,avS(i_l).wBt.*r.^2) ./ r.^3;
     avS(i_l).Wq = 6*cumtrapz(r,avS(i_l).wBq.*r.^2) ./ r.^3;
-    avS(i_l).T  = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
+    avS(i_l).Ti = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
     
     avU(i_l).W  = 6*cumtrapz(r,avU(i_l).wB .*r.^2) ./ r.^3;
     avU(i_l).Wt = 6*cumtrapz(r,avU(i_l).wBt.*r.^2) ./ r.^3;
     avU(i_l).Wq = 6*cumtrapz(r,avU(i_l).wBq.*r.^2) ./ r.^3;
-    avU(i_l).T  = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
+    avU(i_l).Ti = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
     
     avS(i_l).s3lrW = avS(i_l).s3lr - avS(i_l).W;
     avU(i_l).s3lrW = avU(i_l).s3lr + avU(i_l).W;
@@ -323,11 +331,63 @@ end
 
 
 
-%% Plot structure functions
+%% Calculate dissipation rate
 
-plots = { {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
-          {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
-          {'s3lr','W','s3lrW'}, {'$S_3^L r^{-1}$','$W$','$S_3^L r^{-1}-W$'} };
+edr_vars = {'uu','vv','ww','Wrs3l'};
+slps = [2/3 2/3 2/3 1];
+cons = [2.0 2.6 2.6 4.0];
+
+Nvar = numel(edr_vars);
+for i_v = 1:Nvar
+    var = edr_vars{i_v};
+    [avS,avU] = calc_edr(avS,avU,edr_vars{i_v},'Slope',slps(i_v),'Constant',cons(i_v),...
+        'FitRange',[10 60],'Method','direct','FitPoints',6);
+end
+
+
+
+
+% Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
+%     {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
+%     'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
+
+
+
+%% Estimate transport
+
+% as residual
+
+Nlvl = size(avS,1);
+for i_l = 1:Nlvl
+    avS(i_l).Tres = avS(i_l).s3lr - avS(i_l).W - 4*avS(i_l).edr_s2;
+    avU(i_l).Tres = sqrt( avU(i_l).s3lr.^2 + avU(i_l).W.^2 + 4*avU(i_l).edr_s2.^2 );
+end
+
+% from differences between levels
+
+for i_l = 1:Nlvl-1
+    avS(i_l).Tdif = (avS(i_l+1).Ti-avS(i_l).Ti) / (avS(i_l+1).alt-avS(i_l).alt);
+    avU(i_l).Tdif = sqrt(avU(i_l+1).Ti.^2+avU(i_l).Ti.^2) / (avS(i_l+1).alt-avS(i_l).alt);
+end
+
+
+
+%% PLOTS
+
+%% Overview of the segments
+
+plot_seg_overview(MOM,levels,false);
+print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
+
+
+%% Structure functions
+
+plots = { 
+%     {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
+    {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
+    {'s3lr','s3lrW'}, {'$S_3^L r^{-1}$','$S_3^L r^{-1}-W$'};
+    {'Tres','Tdif'}, {'Tres','Tdif'}
+    };
 
 
 Nlvl = size(avS,1);
@@ -335,52 +395,21 @@ Nlvl = size(avS,1);
 for i_p = 1:size(plots,1)
     for i_l = 1:Nlvl
         fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[5 6 7],...
-            'XLim',[4 400],'YLim',[1e-6 2e-3]);
+            'XLim',[4 400],'YLim',[1e-6 4e-3]);
         legend(plots{i_p,2},'Interpreter','latex','Location','best')
         title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-        print(fig,[plotpath,filesep,'S_',levels{i_l},'_',plots{i_p,1}{1}],'-dpng','-r300')
+        print(fig,[plotpath,filesep,plots{i_p,1}{1},'_',levels{i_l}],'-dpng','-r300')
     end
 end
 
-fig = plot_sfc(avS,avU,{'T'},[1 2 3 4],'XLim',[4 400]);
-legend(levels,'Interpreter','latex','Location','best')
-title('Integrated transport')
-print(fig,[plotpath,filesep,'S_transport'],'-dpng','-r300')
+
+% fig = plot_sfc(avS,avU,{'T'},[1 2 3 4],'XLim',[4 400]);
+% legend(levels,'Interpreter','latex','Location','best')
+% title('Integrated transport')
+% print(fig,[plotpath,filesep,'S_transport'],'-dpng','-r300')
 
 
-
-%% Calculate dissipation rate
-
-edr_vars = {'uu','vv','ww','Wrs3l'};
-slps = [2/3 2/3 2/3 1];
-cons = [2.0 2.6 2.6 4.0];
-
-fit_range = [10 60];
-method = "direct";
-fit_points = 6;
-
-
-Nlvl = size(avS,1);
-Nvar = numel(edr_vars);
-
-for i_l = 1:Nlvl
-    for i_v = 1:Nvar
-        var = edr_vars{i_v};
-        avS(i_l).(['fit_',var]) = fit_range;
-        avS(i_l).(['slp_',var]) = slps(i_v);
-        avS(i_l).(['con_',var]) = cons(i_v);
-    end
-end
-
-[avS,avU] = calc_edr(avS,avU,edr_vars,'Method',method,'FittingPoints',fit_points);
-
-Tedr = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
-    {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
-    'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
-
-
-
-%% Plot fitted scaling laws
+%% Fitted dissipation
 
 Nlvl = size(avS,1);
 
@@ -390,11 +419,11 @@ for i_l = 1:Nlvl
     legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'E2_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'edr2_',levels{i_l}],'-dpng','-r300')
     
     fig = plot_sfc_edr(avS(i_l),avU(i_l),{'Wrs3l'},7,'XLim',[4 400],'YLim',[1e-6 2e-3]);
     ylabel('$W-S_3^L r^{-1}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'E3_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
     
 end
