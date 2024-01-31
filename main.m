@@ -87,8 +87,7 @@ TURB = calc_thermo(TURB,MOM);
 % (3) union of the two extended masks
 [TURB,MOM] = cloud_mask(TURB,MOM,PMA,98,1);
 
-MOM.OR_clear_fraction = 1 - MOM.OR_cloud_fraction;
-MOM.OR_clear_fraction(MOM.level~="cloud-base") = 1;
+MOM.valid_fraction = 1 - MOM.OR_cloud_fraction;
 
 
 
@@ -120,9 +119,10 @@ Nseg = size(MOM,1);
 MOM2 = [MOM; MOM(MOM.level=="cloud-base",:)];
 MOM2.level(Nseg+1:end) = "cloud-base-noclouds";
 TURB2 = [TURB; TURB([TURB(:).level]=="cloud-base")];
+MOM2.valid_fraction(MOM.level~="cloud-base-noclouds") = 1;
 
 
-S = table2struct(MOM2(:,{'flight','name','level','alt','dr','length','OR_clear_fraction'}));
+S = table2struct(MOM2(:,{'flight','name','level','alt','dr','length','valid_fraction'}));
 V = S; L = S; N = S; U = S;
 
 Nseg = size(S,1);
@@ -180,7 +180,7 @@ for i_v = 1:Nvar
             
             % number of independent samples
 %             N(i_s).(var) = S(i_s).N*S(i_s).dr./L(i_s).(var); 
-            N(i_s).(var) = S(i_s).OR_clear_fraction*S(i_s).length./L(i_s).(var); 
+            N(i_s).(var) = S(i_s).valid_fraction*S(i_s).length./L(i_s).(var); 
             
             % uncertainty
             U(i_s).(var) = sqrt( (V(i_s).(var) - S(i_s).(var).^2) ./ N(i_s).(var) ); 
@@ -250,7 +250,7 @@ for i_l = 1:Nlvl
         avS(i_l,1).(var) = mean( cat(1,S(ind_lv).(var)), 1);
         avV              = mean( cat(1,V(ind_lv).(var)), 1);
 %         avN(i_l,1).(var) = sum( cat(1,N(ind_lv).(var)) ./ cat(1,L(ind_lv).(var)) );
-        avN(i_l,1).(var) = sum( repmat([S(ind_lv).OR_clear_fraction]'.*[S(ind_lv).length]',1,r_maxlag) ...
+        avN(i_l,1).(var) = sum( repmat([S(ind_lv).valid_fraction]'.*[S(ind_lv).length]',1,r_maxlag) ...
             ./ cat(1,L(ind_lv).(var)) );
         avU(i_l,1).(var) = sqrt( (avV - avS(i_l).(var).^2) ./ avN(i_l).(var) );
     end
@@ -283,35 +283,38 @@ Nlvl = size(avS,1);
 for i_l = 1:Nlvl
     r = (1:r_maxlag)*avS(i_l).dr;
     
-    avS(i_l).s3lr = avS(i_l).s3l./r;
-    avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
-    avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
-    avS(i_l).wwu3r = 3*avS(i_l).wwu./r;
-    
-    avU(i_l).s3lr = avU(i_l).s3l./r;
-    avU(i_l).uuu3r = 3*avU(i_l).uuu./r;
-    avU(i_l).vvu3r = 3*avU(i_l).vvu./r;
-    avU(i_l).wwu3r = 3*avU(i_l).wwu./r; 
-
     avS(i_l).W  = 6*cumtrapz(r,avS(i_l).wB .*r.^2) ./ r.^3;
     avS(i_l).Wt = 6*cumtrapz(r,avS(i_l).wBt.*r.^2) ./ r.^3;
     avS(i_l).Wq = 6*cumtrapz(r,avS(i_l).wBq.*r.^2) ./ r.^3;
-    avS(i_l).Ti = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
-    
     avU(i_l).W  = 6*cumtrapz(r,avU(i_l).wB .*r.^2) ./ r.^3;
     avU(i_l).Wt = 6*cumtrapz(r,avU(i_l).wBt.*r.^2) ./ r.^3;
     avU(i_l).Wq = 6*cumtrapz(r,avU(i_l).wBq.*r.^2) ./ r.^3;
+    
+    avS(i_l).s3lr = avS(i_l).s3l./r;
+    avU(i_l).s3lr = avU(i_l).s3l./r;
+    
+    avS(i_l).Ws3lr = avS(i_l).W - avS(i_l).s3lr;
+    avU(i_l).Ws3lr = avU(i_l).W + avU(i_l).s3lr;
+    
+    avS(i_l).Ti = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
     avU(i_l).Ti = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
     
-    avS(i_l).s3lrW = avS(i_l).s3lr - avS(i_l).W;
-    avU(i_l).s3lrW = avU(i_l).s3lr + avU(i_l).W;
-    avS(i_l).Wrs3l = -avS(i_l).s3l + avS(i_l).W.*r;
-    avU(i_l).Wrs3l =  avU(i_l).s3l + avU(i_l).W.*r;
+%     avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
+%     avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
+%     avS(i_l).wwu3r = 3*avS(i_l).wwu./r;
+%     avU(i_l).uuu3r = 3*avU(i_l).uuu./r;
+%     avU(i_l).vvu3r = 3*avU(i_l).vvu./r;
+%     avU(i_l).wwu3r = 3*avU(i_l).wwu./r;
+    
+    avS(i_l).Wrs3l = avS(i_l).W.*r - avS(i_l).s3l;
+    avU(i_l).Wrs3l = avU(i_l).W.*r + avU(i_l).s3l;
 end
 
 
 
 %% Calculate dissipation rate
+
+fit_range = [20 60];
 
 edr_vars = {'uu','vv','ww','Wrs3l'};
 slps = [2/3 2/3 2/3 1];
@@ -321,18 +324,22 @@ Nvar = numel(edr_vars);
 for i_v = 1:Nvar
     var = edr_vars{i_v};
     [avS,avU] = calc_edr(avS,avU,edr_vars{i_v},'Slope',slps(i_v),'Constant',cons(i_v),...
-        'FitRange',[10 60],'Method','direct','FitPoints',6);
+        'FitRange',fit_range,'Method','direct','FitPoints',6);
 end
 
-% Table with dissipation values
-edr_table = struct2table(rmfield(avS,setdiff(fieldnames(avS),...
-    {'level','edr_ww','edr_uu','edr_vv','edr_s2','edr_Wrs3l',...
-    'slp_ww_free','slp_uu_free','slp_vv_free','slp_Wrs3l_free'})));
 
-for i_l = 1:size(avS,1)
+% Compensate for plotting
+Nlvl = size(avS,1);
+for i_l = 1:Nlvl
+    for i_v = 1:Nvar
+        var = edr_vars{i_v};
+        avS(i_l).([var,'_c']) = avS(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
+        avU(i_l).([var,'_c']) = avU(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
+    end
     avS(i_l).edr_s2_4 = avS(i_l).edr_s2*4;
     avU(i_l).edr_s2_4 = avU(i_l).edr_s2*4;
 end
+
 
 
 %% Estimate transport
@@ -362,7 +369,37 @@ end
 
 
 
+%% TABLES
+
+% Segment overview
+
+print_table(MOM2(valid_seg,:),{'length_km','alt'},1,0)
+
+
+% Dissipation rates
+
+print_vars = {'uu','vv','ww','s2','Wrs3l'};
+
+Nlvl = size(avS,1);
+Nvar = numel(print_vars);
+
+fprintf(' %20s',''), fprintf(' & %14s',print_vars{:}), fprintf(' \\\\ \n')
+for i_l = 1:Nlvl
+    fprintf(' %20s',avS(i_l).level)
+    for i_v = 1:Nvar
+        var = print_vars{i_v};
+        fprintf(' & %6.*f (%.*f)',3,1e4*avS(i_l).(['edr_',var]),3,1e4*avU(i_l).(['edr_',var]) )
+    end
+    fprintf(' \\\\ \n')
+end
+
+
+
 %% PLOTS
+
+% save('S.mat','S','U','N','L','V','avS','avU','avN','avN','avV')
+% load('S.mat')
+
 
 %% Overview of the segments
 
@@ -372,11 +409,13 @@ print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 
 %% Structure functions
 
-plots = { 
-%     {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'};
-    {'Wt','Wq','W'}, {'$W_\theta$','$W_q$','$W$'};
-    {'s3lr','s3lrW','edr_s2_4'}, {'$S_3^L r^{-1}$','$S_3^L r^{-1}-W$','$4\epsilon$'};
-    {'Tres','Tdif'}, {'Tres','Tdif'}
+plots = {
+%     {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'}, '$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+    {'W','Wt','Wq'}, {'$W$','$W_\theta$','$W_q$'},'$W\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+    {'s3lr'}, {'$S_3^L r^{-1}$'}, '$S_3^Lr^{-1}\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+    {'Ws3lr','edr_s2_4'}, {'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+    {'Tres','Tdif'}, {'$T_{res}$','$T_{dif}$'}, '$T\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+    {'uu_c','vv_c','ww_c'}, {'uu','vv','ww'}, '$S_2r^{-2/3}C^{-1}$', [8e-4 1e-2];
     };
 
 
@@ -384,13 +423,17 @@ Nlvl = size(avS,1);
       
 for i_p = 1:size(plots,1)
     for i_l = 1:Nlvl
-        fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[5 6 7],...
-            'XLim',[4 400],'YLim',[1e-6 4e-3]);
-        legend(plots{i_p,2},'Interpreter','latex','Location','best')
+        fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[7 1 5],...
+            'XLim',[4 400],'YLim',plots{i_p,4});
+        if numel(plots{i_p,2})>1
+            legend(plots{i_p,2},'Interpreter','latex','Location','best')
+        end
+        ylabel(plots{i_p,3},'Interpreter','latex')
         title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
         print(fig,[plotpath,filesep,plots{i_p,1}{1},'_',levels{i_l}],'-dpng','-r300')
     end
 end
+
 
 
 %% Fitting dissipation

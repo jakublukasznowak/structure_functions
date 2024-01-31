@@ -10,7 +10,7 @@ if nargin<4 || isempty(colors)
 end
 
 
-[fig,ax,co] = fig16x12('loglog',[1 0],varargin{:});
+[fig,ax,co,~,mk] = fig16x12('loglog',[1 0],varargin{:});
 
 co = co(colors,:);
 
@@ -27,13 +27,15 @@ for i_l = 1:Nlvl
         y = S(i_l).(var);
         if isscalar(y)
             y = y*[1 1];
-            r = [4 400];
+            r = ax.XLim;
             plot(r,y,'-','Color',c,'LineWidth',lwb)
         else
             r = (1:length(y))*S(i_l).dr;
-            plot(r(y>=0), y(y>=0),'o','Color',c,'MarkerSize',ms,'MarkerFaceColor',c,'HandleVisibility','off')
-            plot(r(y<0), -y(y<0), 'o','Color',c,'MarkerSize',ms,'HandleVisibility','off')
-            plot(nan,nan,'o','Color',c,'MarkerFaceColor',c)
+            plot(r(y>=0), y(y>=0),'Color',c,'Marker',mk{i_v},'LineStyle','none',...
+                'MarkerSize',ms,'MarkerFaceColor',c,'HandleVisibility','off')
+            plot(r(y<0), -y(y<0),'Color',c,'Marker',mk{i_v},'LineStyle','none',...
+                'MarkerSize',ms,'HandleVisibility','off')
+            plot(nan,nan,'Color',c,'Marker',mk{i_v},'MarkerFaceColor',c,'LineStyle','none')
         end
         
         if ~isempty(U)
