@@ -10,9 +10,12 @@ if nargin<4 || isempty(colors)
 end
 
 
-[fig,ax,co,~,mk] = fig16x12('loglog',[1 0],varargin{:});
+[fig,ax,co] = fig16x12('loglog',[1 0],varargin{:});
+
+mk = repmat({'^','o','x','+','s'},1,5);
 
 co = co(colors,:);
+mk = mk(colors);
 
 Nlvl = size(S,1);
 Nvar = numel(vars);
