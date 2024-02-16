@@ -10,9 +10,9 @@ if nargin<4 || isempty(colors)
 end
 
 
-[fig,ax,co] = fig16x12('loglog',[1 0],varargin{:});
+[fig,ax,co] = fig16x12('loglog',[1 0],'on',varargin{:});
 
-mk = repmat({'^','o','x','+','s'},1,5);
+mk = repmat({'^','o','+','x','s'},1,5);
 
 co = co(colors,:);
 mk = mk(colors);
@@ -25,6 +25,10 @@ for i_l = 1:Nlvl
     
     for i_v = 1:Nvar
         var = vars{i_v};
+        if var(1)=='-'
+            var = var(2:end);
+            S(i_l).(var) = -S(i_l).(var);
+        end
         c = co((i_l-1)*Nvar+i_v,:);
         
         y = S(i_l).(var);

@@ -111,9 +111,8 @@ sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
 % Assume fixed distance between points
 MOM.dr(:) = 4;
 
-% Consider max lag of 400 m
+% Consider max lag of
 r_maxlag = 4000/4;
-xlim = [4 4000];
 
 % Duplicate cloud-base segments
 Nseg = size(MOM,1);
@@ -312,9 +311,7 @@ for i_l = 1:Nlvl
     
     avS(i_l).Wrs3l = avS(i_l).W.*r - avS(i_l).s3l;
     avU(i_l).Wrs3l = avU(i_l).W.*r + avU(i_l).s3l;
-    
-    avS(i_l).m_s3lr = - avS(i_l).s3lr;
-    avU(i_l).m_s3lr =   avU(i_l).s3lr;
+
 end
 
 
@@ -353,11 +350,11 @@ end
 
 % as residual
 
-Nlvl = size(avS,1);
-for i_l = 1:Nlvl
-    avS(i_l).Tres = -avS(i_l).s3lr + avS(i_l).W - 4*avS(i_l).edr_s2;
-    avU(i_l).Tres = sqrt( avU(i_l).s3lr.^2 + avU(i_l).W.^2 + 4*avU(i_l).edr_s2.^2 );
-end
+% Nlvl = size(avS,1);
+% for i_l = 1:Nlvl
+%     avS(i_l).Tres = -avS(i_l).s3lr + avS(i_l).W - 4*avS(i_l).edr_s2;
+%     avU(i_l).Tres = sqrt( avU(i_l).s3lr.^2 + avU(i_l).W.^2 + 4*avU(i_l).edr_s2.^2 );
+% end
 
 % from differences between levels
 
@@ -372,9 +369,6 @@ for i_l = 1:size(level_pairs,1)
     
     avS(i1).Tdif = (avS(i1).Ti-avS(i2).Ti) / (avS(i1).alt-avS(i2).alt);
     avU(i1).Tdif = sqrt(avU(i1).Ti.^2+avU(i2).Ti.^2) / (avS(i1).alt-avS(i2).alt);
-    
-    avS(i1).m_Tdif = - avS(i1).Tdif;
-    avU(i1).m_Tdif =   avU(i1).Tdif;
 end
 
 
@@ -407,8 +401,10 @@ end
 
 %% PLOTS
 
-save('S_4km.mat','S','U','N','L','V','avS','avU','avN','avN','avV')
-% load('S.mat')
+% save('S_4km.mat','S','U','N','L','V','avS','avU','avN','avN','MOM','MOM2','levels','plotpath')
+
+load('S_4km.mat')
+
 
 
 %% Overview of the segments
@@ -419,52 +415,102 @@ print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 
 %% Structure functions
 
-plots = {
+% plots = {
 %     {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'}, '$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-    {'W','Wt','Wq'}, {'$W$','$W_\theta$','$W_q$'},'$W\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-    {'s3lr'}, {'$S_3^L r^{-1}$'}, '$S_3^Lr^{-1}\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-    {'Ws3lr','edr_s2_4'}, {'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-    {'Tres','Tdif'}, {'$T_{res}$','$T_{dif}$'}, '$T\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-    {'uu_c','vv_c','ww_c'}, {'uu','vv','ww'}, '$S_2r^{-2/3}C^{-1}$', [8e-4 1e-2];
-    {'W','m_s3lr','m_Tdif','edr_s2_4'}, {'$W$','$-S_3^L r^{-1}$','$-T_{dif}$','$4\epsilon_2$'}, '$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-    };
+%     {'W','Wt','Wq'}, {'$W$','$W_\theta$','$W_q$'},'$W\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+%     {'s3lr'}, {'$S_3^L r^{-1}$'}, '$S_3^Lr^{-1}\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+%     {'Ws3lr','edr_s2_4'}, {'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+%     {'Tres','Tdif'}, {'$T_{res}$','$T_{dif}$'}, '$T\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+%     {'uu_c','vv_c','ww_c'}, {'uu','vv','ww'}, '$S_2r^{-2/3}C^{-1}$', [8e-4 1e-2];
+%     {'W','m_s3lr','m_Tdif','edr_s2_4'}, {'$W$','$-S_3^L r^{-1}$','$-T_{dif}$','$4\epsilon_2$'}, '$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
+%     };
+% %%
 
+xlim = [4 4000];
+ylim = [1e-6 4e-3];
 
 Nlvl = size(avS,1);
-      
-for i_p = 1:size(plots,1)
-    for i_l = 1:Nlvl
-        fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[7 1 5 3],...
-            'XLim',xlim,'YLim',plots{i_p,4});
-        if numel(plots{i_p,2})>1
-            legend(plots{i_p,2},'Interpreter','latex','Location','best')
-        end
-        ylabel(plots{i_p,3},'Interpreter','latex')
-        title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-        print(fig,[plotpath,filesep,plots{i_p,1}{2},'_',levels{i_l}],'-dpng','-r300')
-    end
+
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],'XLim',xlim,'YLim',ylim);
+    legend({'$W$','$W_\theta$','$W_q$'},'Interpreter','latex','Location','best')
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'W_',levels{i_l}],'-dpng','-r300')
 end
+
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},1,'XLim',xlim,'YLim',ylim);
+    legend({'$S_3^L r^{-1}$'},'Interpreter','latex','Location','best')
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'s3l_',levels{i_l}],'-dpng','-r300')
+end
+
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','edr_s2_4'},[7 3],'XLim',xlim,'YLim',ylim);
+    legend({'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'Ws3l_',levels{i_l}],'-dpng','-r300')
+end
+
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tdif','edr_s2_4'},[7 1 5 3],'XLim',xlim,'YLim',ylim);
+    legend({'$W$','$-S_3^L r^{-1}$','$-T_{dif}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')
+end
+
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],'XLim',xlim,'YLim',[8e-4 1e-2]);
+    legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    ylabel('$S_2r^{-2/3}C^{-1}$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'s2_',levels{i_l}],'-dpng','-r300')
+end
+
+
+
+% for i_p = 1:size(plots,1)
+%     for i_l = 1:Nlvl
+%         fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[7 1 5 3],...
+%             'XLim',xlim,'YLim',plots{i_p,4});
+%         if numel(plots{i_p,2})>1
+%             legend(plots{i_p,2},'Interpreter','latex','Location','best')
+%         end
+%         ylabel(plots{i_p,3},'Interpreter','latex')
+%         title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+%         print(fig,[plotpath,filesep,plots{i_p,1}{1},'_',levels{i_l}],'-dpng','-r300')
+%     end
+% end
 
 
 
 %% Fitting dissipation
 
-% Nlvl = size(avS,1);
+Nlvl = size(avS,1);
 % 
-% for i_l = 1:Nlvl
-%     
-%     fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 1 5],'XLim',xlim,'YLim',[1e-3 2e-2]);
-%     legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
-%     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
-%     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-%     print(fig,[plotpath,filesep,'edr2_',levels{i_l}],'-dpng','-r300')
+for i_l = 1:Nlvl
+    
+    fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 5 1],'XLim',xlim,'YLim',[1e-3 2e-2]);
+    legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    ylabel('$S_2r^{-2/3}$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'edr2_',levels{i_l}],'-dpng','-r300')
 %     
 %     fig = plot_sfc_edr(avS(i_l),avU(i_l),{'Wrs3l'},7,'XLim',xlim,'YLim',[1e-6 2e-3]);
 %     ylabel('$W-S_3^L r^{-1}$','Interpreter','latex')
 %     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
 %     print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
 %     
-% end
+end
 
 
 

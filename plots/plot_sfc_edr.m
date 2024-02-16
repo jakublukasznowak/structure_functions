@@ -10,7 +10,7 @@ if nargin<4 || isempty(colors)
 end
 
 
-[fig,ax,co] = fig16x12('loglog',[1 0],varargin{:});
+[fig,ax,co] = fig16x12('loglog',[1 0],'on',varargin{:});
 
 co = co(colors,:);
 
