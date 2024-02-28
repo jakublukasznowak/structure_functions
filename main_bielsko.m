@@ -1,9 +1,9 @@
 
+% MYPROJECTPATH is the path where you downloaded the codes
+
 % Prepare paths
 
 addpath(genpath(myprojectpath))
-
-datapath = mydatapath;
 
 plotpath = [myprojectpath,filesep,'figures_Bielsko'];
 if ~isfolder(plotpath)
