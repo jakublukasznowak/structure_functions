@@ -108,11 +108,13 @@ sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
             'wwW',{'W_DET','W_DET','X_W_DET'}
             };
 
-% Assume fixed distance between points
-MOM.dr(:) = 4;
+% Max r separation
+r_max = 4000;
+dr = 4;
 
-% Consider max lag of
-r_maxlag = 4000/4;
+% Assume fixed distance between points
+MOM.dr(:) = dr;
+r_maxlag = r_max/4;
 
 % Duplicate cloud-base segments
 Nseg = size(MOM,1);
@@ -284,7 +286,7 @@ end
 Nlvl = size(avS,1);
 
 for i_l = 1:Nlvl
-    r = (1:r_maxlag)*avS(i_l).dr;
+    r = (1:length(avS(i_l)))*avS(i_l).dr;
     
     avS(i_l).W  = 6*cumtrapz(r,avS(i_l).wB .*r.^2) ./ r.^3;
     avS(i_l).Wt = 6*cumtrapz(r,avS(i_l).wBt.*r.^2) ./ r.^3;
@@ -348,7 +350,7 @@ end
 
 %% Estimate transport
 
-% as residual
+% (1 idea) as residual
 
 % Nlvl = size(avS,1);
 % for i_l = 1:Nlvl
@@ -356,19 +358,73 @@ end
 %     avU(i_l).Tres = sqrt( avU(i_l).s3lr.^2 + avU(i_l).W.^2 + 4*avU(i_l).edr_s2.^2 );
 % end
 
-% from differences between levels
 
-level_pairs = {'cloud-base','top-subcloud';
-               'cloud-base-noclouds','top-subcloud';
-               'top-subcloud','mid-subcloud';
-               'mid-subcloud','near-surface'};
+% (2 idea) from differences between levels
 
-for i_l = 1:size(level_pairs,1)
-    i1 = find([avS(:).level]==level_pairs{i_l,1});
-    i2 = find([avS(:).level]==level_pairs{i_l,2});
-    
-    avS(i1).Tdif = (avS(i1).Ti-avS(i2).Ti) / (avS(i1).alt-avS(i2).alt);
-    avU(i1).Tdif = sqrt(avU(i1).Ti.^2+avU(i2).Ti.^2) / (avS(i1).alt-avS(i2).alt);
+% level_pairs = {'cloud-base','top-subcloud';
+%                'cloud-base-noclouds','top-subcloud';
+%                'top-subcloud','mid-subcloud';
+%                'mid-subcloud','near-surface'};
+% 
+% for i_l = 1:size(level_pairs,1)
+%     i1 = find([avS(:).level]==level_pairs{i_l,1});
+%     i2 = find([avS(:).level]==level_pairs{i_l,2});
+%     
+%     avS(i1).Tdif = (avS(i1).Ti-avS(i2).Ti) / (avS(i1).alt-avS(i2).alt);
+%     avU(i1).Tdif = sqrt(avU(i1).Ti.^2+avU(i2).Ti.^2) / (avS(i1).alt-avS(i2).alt);
+% end
+
+
+% (3 idea) from interpolated smooth function
+
+alt_increment = 20; % m
+int_method = 'pchip';
+
+
+int_levels = {'cloud-base','top-subcloud','mid-subcloud','near-surface'};
+[~,ind_l] = ismember(int_levels,[avS(:).level]);
+
+alt_vec   = [avS(ind_l).alt];
+% alt_query = reshape( [alt_vec-alt_increment; alt_vec+alt_increment] ,1,[]);
+alt_query = reshape( [alt_vec; alt_vec+alt_increment] ,1,[]);
+
+avS_T_int = interp1(alt_vec,cat(1,avS(ind_l).Ti),alt_query,int_method);
+avU_T_int = interp1(alt_vec,cat(1,avU(ind_l).Ti),alt_query,int_method);
+
+for i_l = 1:numel(ind_l)
+    avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increment;
+    avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment;
+end
+
+
+int_levels = {'cloud-base-noclouds','top-subcloud','mid-subcloud','near-surface'};
+[~,ind_l] = ismember(int_levels,[avS(:).level]);
+
+alt_vec   = [avS(ind_l).alt];
+% alt_query = reshape( [alt_vec-alt_increment; alt_vec+alt_increment] ,1,[]);
+alt_query = reshape( [alt_vec; alt_vec+alt_increment] ,1,[]);
+
+avS_T_int = interp1(alt_vec,cat(1,avS(ind_l).Ti),alt_query,int_method);
+avU_T_int = interp1(alt_vec,cat(1,avU(ind_l).Ti),alt_query,int_method);
+
+i_l = 1;
+avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increment;
+avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment;
+
+
+
+%% Save/load
+
+% save('S_4km.mat','S','U','N','L','V','avS','avU','avN',...
+%     'r_max','dr','r_maxlag','r','MOM','levels','plotpath',...
+%     'MOM2','sfc_var','valid_seg')
+
+load('S_4km.mat')
+
+addpath(genpath(myprojectpath))
+plotpath = [myprojectpath,filesep,'figures'];
+if ~isfolder(plotpath)
+    mkdir(plotpath)
 end
 
 
@@ -401,11 +457,6 @@ end
 
 %% PLOTS
 
-% save('S_4km.mat','S','U','N','L','V','avS','avU','avN','avN','MOM','MOM2','levels','plotpath')
-
-load('S_4km.mat')
-
-
 
 %% Overview of the segments
 
@@ -429,11 +480,13 @@ print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 xlim = [4 4000];
 ylim = [1e-6 4e-3];
 
+Npoints = 40;
+
 Nlvl = size(avS,1);
 
 
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],Npoints,'XLim',xlim,'YLim',ylim);
     legend({'$W$','$W_\theta$','$W_q$'},'Interpreter','latex','Location','best')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -442,7 +495,7 @@ end
 
 
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},1,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},1,Npoints,'XLim',xlim,'YLim',ylim);
     legend({'$S_3^L r^{-1}$'},'Interpreter','latex','Location','best')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -451,7 +504,7 @@ end
 
 
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','edr_s2_4'},[7 3],'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','edr_s2_4'},[7 3],Npoints,'XLim',xlim,'YLim',ylim);
     legend({'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -460,8 +513,8 @@ end
 
 
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tdif','edr_s2_4'},[7 1 5 3],'XLim',xlim,'YLim',ylim);
-    legend({'$W$','$-S_3^L r^{-1}$','$-T_{dif}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
+    legend({'$W$','$-S_3^L r^{-1}$','$-T_{int}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')
@@ -469,7 +522,7 @@ end
 
 
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],'XLim',xlim,'YLim',[8e-4 1e-2]);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],Npoints,'XLim',xlim,'YLim',[8e-4 1e-2]);
     legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     ylabel('$S_2r^{-2/3}C^{-1}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -496,10 +549,10 @@ end
 %% Fitting dissipation
 
 Nlvl = size(avS,1);
-% 
+
 for i_l = 1:Nlvl
     
-    fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 5 1],'XLim',xlim,'YLim',[1e-3 2e-2]);
+    fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 5 1],Npoints,'XLim',xlim,'YLim',[1e-3 2e-2]);
     legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))

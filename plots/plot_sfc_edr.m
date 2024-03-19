@@ -1,5 +1,5 @@
 
-function [fig,ax] = plot_sfc_edr(S,U,vars,colors,varargin)
+function [fig,ax] = plot_sfc_edr(S,U,vars,colors,npoints,varargin)
 
 lwu = 1;
 lwl = 1.5;
@@ -7,6 +7,9 @@ ms = 4;
 
 if nargin<4 || isempty(colors)
     colors = (1:100);
+end
+if nargin<5 || isempty(npoints)
+    npoints = 0;
 end
 
 
@@ -38,7 +41,25 @@ for i_l = 1:Nlvl
         r_fit     = r(ind_range([1,end]));
                 
         y = S(i_l).(var)./r.^slp;
-        plot(r,abs(y),'o','MarkerSize',ms,'Color',c,'MarkerFaceColor',c)
+        
+        if npoints>0 && length(y)>1
+            [isxlim,ind_xlim] = ismember('XLim',varargin(1:2:end));
+            if isxlim
+                rmin = varargin{2*ind_xlim}(1);
+                rmax = varargin{2*ind_xlim}(2);
+            else
+                rmin = S(i_l).dr;
+                rmax = length(y)*S(i_l).dr;
+            end
+            ind_r = unique(interp1(r,1:length(y),exp(linspace(log(rmin),log(rmax),npoints)),'nearest',length(y)));
+            rs = r(ind_r);
+            ys = y(ind_r);
+        else
+            rs = r;
+            ys = y;
+        end
+        
+        plot(rs,abs(ys),'o','MarkerSize',ms,'Color',c,'MarkerFaceColor',c)
         
         if ~isempty(U)
             u = U(i_l).(var)./r.^slp;
