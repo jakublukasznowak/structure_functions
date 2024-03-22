@@ -85,9 +85,9 @@ end
 % Detrend
 
 for i_s = 1:Nseg
-    TURB(i_s).U = detrend( TURB(i_s).U );
-    TURB(i_s).V = detrend( TURB(i_s).V );
-    TURB(i_s).W = detrend( TURB(i_s).W );
+    TURB(i_s).U = detrend( TURB(i_s).U ) /3.6;
+    TURB(i_s).V = detrend( TURB(i_s).V ) /3.6;
+    TURB(i_s).W = detrend( TURB(i_s).W ) /3.6;
     TURB(i_s).p = detrend( TURB(i_s).p );
 end
 
@@ -105,14 +105,10 @@ sfc_vars = {'uuu',{'U','U','U'};
             'uu', {'U','U'};
             'vv', {'V','V'};
             'ww', {'W','W'};
-%             'uuW',{'U','U','X_W'};
-%             'vvW',{'V','V','X_W'};
-%             'wwW',{'W','W','X_W'};
-%             'wp' ,{'W','p'}
             };
 
 % Max r separation
-r_max = 400;
+r_max = 1000;
 
 
 S = table2struct(MOM(:,{'level','alt','dr','length'}));
@@ -322,15 +318,15 @@ end
 
 %% Save/load
 
-save('S_baltic_4km.mat','S','U','N','L','V','avS','avU','avN',...
-    'r_max','dr','r_maxlag','r','MOM','levels','plotpath')
+% save('S_baltic_1km.mat','S','U','N','L','V','avS','avU','avN',...
+%     'r_max','dr','r_maxlag','r','MOM','levels','plotpath')
 
-% load('S_baltic_4km.mat')
-% addpath(genpath(myprojectpath))
-% plotpath = [myprojectpath,filesep,'figures_Baltic'];
-% if ~isfolder(plotpath)
-%     mkdir(plotpath)
-% end
+load('S_baltic_1km.mat')
+addpath(genpath(myprojectpath))
+plotpath = [myprojectpath,filesep,'figures_Baltic'];
+if ~isfolder(plotpath)
+    mkdir(plotpath)
+end
 
 
 %% TABLES
@@ -383,7 +379,7 @@ end
 
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},1,Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$S_3^L r^{-1}$'},'Interpreter','latex','Location','southeast')
+    legend({'$S_3 r^{-1}$'},'Interpreter','latex','Location','southeast')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s3l_',levels{i_l}],'-dpng','-r300')
@@ -392,7 +388,7 @@ end
 
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','edr_s2_4'},[7 3],Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','southeast')
+    legend({'$W-S_3 r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','southeast')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'Ws3l_',levels{i_l}],'-dpng','-r300')
@@ -401,7 +397,7 @@ end
 
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','edr_s2_4'},[7 1 3],Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$W$','$-S_3^L r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','southeast')
+    legend({'$W$','$-S_3 r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','southeast')
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')

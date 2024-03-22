@@ -19,6 +19,8 @@
 % 
 % In this code v1 is used.
 
+iferrors = false;
+
 
 % Prepare paths
 
@@ -26,7 +28,7 @@ addpath(genpath(myprojectpath))
 
 datapath = mydatapath;
 
-plotpath = [myprojectpath,filesep,'figures'];
+plotpath = [myprojectpath,filesep,'figures_r'];
 if ~isfolder(plotpath)
     mkdir(plotpath)
 end
@@ -105,11 +107,31 @@ sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
             'ww', {'W_DET','W_DET'};
             'uuW',{'VY_DET','VY_DET','X_W_DET'};
             'vvW',{'UX_DET','UX_DET','X_W_DET'};
-            'wwW',{'W_DET','W_DET','X_W_DET'}
+            'wwW',{'W_DET','W_DET','X_W_DET'};
+            'uuA',{'VY_DET','VY_DET','A_VY_DET'};
+            'vvA',{'UX_DET','UX_DET','A_VY_DET'};
+            'wwA',{'W_DET','W_DET','A_VY_DET'};
             };
+        
+% sfc_vars = {'uuu',{'UX_DET','UX_DET','UX_DET'};
+%             'vvu',{'VY_DET','VY_DET','UX_DET'};
+%             'wwu',{'W_DET','W_DET','UX_DET'};
+%             'wB', {'W_DET','B'};
+%             'wBt',{'W_DET','Bt'};
+%             'wBq',{'W_DET','Bq'};
+%             'uu', {'UX_DET','UX_DET'};
+%             'vv', {'VY_DET','VY_DET'};
+%             'ww', {'W_DET','W_DET'};
+%             'uuW',{'UX_DET','UX_DET','X_W_DET'};
+%             'vvW',{'VY_DET','VY_DET','X_W_DET'};
+%             'wwW',{'W_DET','W_DET','X_W_DET'};
+%             'uuA',{'UX_DET','UX_DET','A_UX_DET'};
+%             'vvA',{'VY_DET','VY_DET','A_UX_DET'};
+%             'wwA',{'W_DET','W_DET','A_UX_DET'};
+%             };
 
 % Max r separation
-r_max = 4000;
+r_max = 1000;
 dr = 4;
 
 % Assume fixed distance between points
@@ -137,12 +159,21 @@ for i_v = 1:Nvar
     varlist = sfc_vars{i_v,2};
     
     midFlag = startsWith(varlist,'X_');
-    difFlag = ~startsWith(varlist,'X_');
+    absFlag = startsWith(varlist,'A_');
+    difFlag = ~startsWith(varlist,'X_') & ~startsWith(varlist,'A_');
     varlist(midFlag) = extractAfter(varlist(midFlag),'X_');
+    varlist(absFlag) = extractAfter(varlist(absFlag),'A_');
     
     fprintf('S_%s = < ',var)
-    fprintf('%s_X ',varlist{midFlag})
-    fprintf('d %s ',varlist{difFlag})
+    if sum(midFlag)
+        fprintf('%s_X ',varlist{midFlag})
+    end
+    if sum(absFlag)
+        fprintf('|d %s| ',varlist{absFlag})
+    end
+    if sum(difFlag)
+        fprintf('d %s ',varlist{difFlag})
+    end
     fprintf('>\n')
 
     for i_s = 1:Nseg
@@ -173,12 +204,22 @@ for i_v = 1:Nvar
                     midI = 1;
                 end
                 
-                I = difI.*midI; % increments
+                if sum(absFlag)>0
+                    absI = prod( abs( A(r_lag+1:Lt,absFlag)-A(1:Lt-r_lag,absFlag) ) ,2);
+                else
+                    absI = 1;
+                end
+                
+                I = difI.*midI.*absI; % increments
                 
                 S(i_s).(var)(r_lag) = mean(I,'omitnan');        % structure function
-                V(i_s).(var)(r_lag) = mean(I.^2,'omitnan');     % variance of increments
-                L(i_s).(var)(r_lag) = int_ls_short(I)*S(i_s).dr;% integral length scale for increments
-                S(i_s).N    (r_lag) = sum(~isnan(I));           % number of valid samples
+                
+                if iferrors
+                    V(i_s).(var)(r_lag) = mean(I.^2,'omitnan');     % variance of increments
+                    L(i_s).(var)(r_lag) = int_ls_short(I)*S(i_s).dr;% integral length scale for increments
+                    S(i_s).N    (r_lag) = sum(~isnan(I));           % number of valid samples
+                end
+                
             end
             
             % number of independent samples
@@ -266,6 +307,12 @@ for i_l = 1:Nlvl
         avU(i_l).s3l = 3*sqrt( avU(i_l).uuu.^2 + avU(i_l).vvu.^2 + avU(i_l).wwu.^2 );
     end
     
+    % s3A
+    if all(ismember({'uuA','vvA','wwA'},fieldnames(avS)))
+        avS(i_l).s3a = 3*( avS(i_l).uuA + avS(i_l).vvA + avS(i_l).wwA );
+        avU(i_l).s3a = 3*sqrt( avU(i_l).uuA.^2 + avU(i_l).vvA.^2 + avU(i_l).wwA.^2 );
+    end
+    
     % wBt, wBq
     if all(ismember({'wBt','wBq'},fieldnames(avS)))
         avS(i_l).wQ  = avS(i_l).wBt + avS(i_l).wBq;
@@ -286,7 +333,7 @@ end
 Nlvl = size(avS,1);
 
 for i_l = 1:Nlvl
-    r = (1:length(avS(i_l)))*avS(i_l).dr;
+    r = (1:length(avS(i_l).uuu))*avS(i_l).dr;
     
     avS(i_l).W  = 6*cumtrapz(r,avS(i_l).wB .*r.^2) ./ r.^3;
     avS(i_l).Wt = 6*cumtrapz(r,avS(i_l).wBt.*r.^2) ./ r.^3;
@@ -298,21 +345,37 @@ for i_l = 1:Nlvl
     avS(i_l).s3lr = avS(i_l).s3l./r;
     avU(i_l).s3lr = avU(i_l).s3l./r;
     
+    avS(i_l).s3ar = avS(i_l).s3a./r;
+    avU(i_l).s3ar = avU(i_l).s3a./r;
+    
     avS(i_l).Ws3lr = avS(i_l).W - avS(i_l).s3lr;
     avU(i_l).Ws3lr = avU(i_l).W + avU(i_l).s3lr;
+    
+    avS(i_l).Ws3ar = avS(i_l).W - avS(i_l).s3ar;
+    avU(i_l).Ws3ar = avU(i_l).W + avU(i_l).s3ar;
     
     avS(i_l).Ti = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
     avU(i_l).Ti = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
     
-%     avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
-%     avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
-%     avS(i_l).wwu3r = 3*avS(i_l).wwu./r;
-%     avU(i_l).uuu3r = 3*avU(i_l).uuu./r;
-%     avU(i_l).vvu3r = 3*avU(i_l).vvu./r;
-%     avU(i_l).wwu3r = 3*avU(i_l).wwu./r;
+    avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
+    avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
+    avS(i_l).wwu3r = 3*avS(i_l).wwu./r;
+    avU(i_l).uuu3r = 3*avU(i_l).uuu./r;
+    avU(i_l).vvu3r = 3*avU(i_l).vvu./r;
+    avU(i_l).wwu3r = 3*avU(i_l).wwu./r;
+    
+    avS(i_l).uuA3r = 3*avS(i_l).uuA./r;
+    avS(i_l).vvA3r = 3*avS(i_l).vvA./r;
+    avS(i_l).wwA3r = 3*avS(i_l).wwA./r;
+    avU(i_l).uuA3r = 3*avU(i_l).uuA./r;
+    avU(i_l).vvA3r = 3*avU(i_l).vvA./r;
+    avU(i_l).wwA3r = 3*avU(i_l).wwA./r;
     
     avS(i_l).Wrs3l = avS(i_l).W.*r - avS(i_l).s3l;
     avU(i_l).Wrs3l = avU(i_l).W.*r + avU(i_l).s3l;
+    
+    avS(i_l).Wrs3a = avS(i_l).W.*r - avS(i_l).s3a;
+    avU(i_l).Wrs3a = avU(i_l).W.*r + avU(i_l).s3a;
 
 end
 
@@ -337,6 +400,7 @@ end
 % Compensate for plotting
 Nlvl = size(avS,1);
 for i_l = 1:Nlvl
+    r = (1:length(avS(i_l).uuu))*avS(i_l).dr;
     for i_v = 1:Nvar
         var = edr_vars{i_v};
         avS(i_l).([var,'_c']) = avS(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
@@ -377,7 +441,7 @@ end
 
 % (3 idea) from interpolated smooth function
 
-alt_increment = 20; % m
+alt_increment = 25; % m
 int_method = 'pchip';
 
 
@@ -385,15 +449,19 @@ int_levels = {'cloud-base','top-subcloud','mid-subcloud','near-surface'};
 [~,ind_l] = ismember(int_levels,[avS(:).level]);
 
 alt_vec   = [avS(ind_l).alt];
-% alt_query = reshape( [alt_vec-alt_increment; alt_vec+alt_increment] ,1,[]);
-alt_query = reshape( [alt_vec; alt_vec+alt_increment] ,1,[]);
+alt_query = reshape( [alt_vec-alt_increment; alt_vec+alt_increment] ,1,[]);
+% alt_query = reshape( [alt_vec; alt_vec+alt_increment] ,1,[]);
 
 avS_T_int = interp1(alt_vec,cat(1,avS(ind_l).Ti),alt_query,int_method);
-avU_T_int = interp1(alt_vec,cat(1,avU(ind_l).Ti),alt_query,int_method);
+if iferrors
+    avU_T_int = interp1(alt_vec,cat(1,avU(ind_l).Ti),alt_query,int_method);
+else
+    avU_T_int = nan(size(avS_T_int));
+end
 
 for i_l = 1:numel(ind_l)
-    avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increment;
-    avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment;
+    avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increment/2;
+    avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment/2;
 end
 
 
@@ -401,31 +469,35 @@ int_levels = {'cloud-base-noclouds','top-subcloud','mid-subcloud','near-surface'
 [~,ind_l] = ismember(int_levels,[avS(:).level]);
 
 alt_vec   = [avS(ind_l).alt];
-% alt_query = reshape( [alt_vec-alt_increment; alt_vec+alt_increment] ,1,[]);
-alt_query = reshape( [alt_vec; alt_vec+alt_increment] ,1,[]);
+alt_query = reshape( [alt_vec-alt_increment; alt_vec+alt_increment] ,1,[]);
+% alt_query = reshape( [alt_vec; alt_vec+alt_increment] ,1,[]);
 
 avS_T_int = interp1(alt_vec,cat(1,avS(ind_l).Ti),alt_query,int_method);
-avU_T_int = interp1(alt_vec,cat(1,avU(ind_l).Ti),alt_query,int_method);
+if iferrors
+    avU_T_int = interp1(alt_vec,cat(1,avU(ind_l).Ti),alt_query,int_method);
+else
+    avU_T_int = nan(size(avS_T_int));
+end
 
 i_l = 1;
-avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increment;
-avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment;
+avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increment/2;
+avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment/2;
 
 
 
 %% Save/load
 
-% save('S_4km.mat','S','U','N','L','V','avS','avU','avN',...
-%     'r_max','dr','r_maxlag','r','MOM','levels','plotpath',...
-%     'MOM2','sfc_var','valid_seg')
+save('S_eureca_1km.mat','S','U','N','L','V','avS','avU','avN',...
+    'r_max','dr','r_maxlag','r','MOM','levels','plotpath',...
+    'MOM2','sfc_var','valid_seg')
 
-load('S_4km.mat')
-
-addpath(genpath(myprojectpath))
-plotpath = [myprojectpath,filesep,'figures'];
-if ~isfolder(plotpath)
-    mkdir(plotpath)
-end
+% load('S_eureca_1km.mat')
+% 
+% addpath(genpath(myprojectpath))
+% plotpath = [myprojectpath,filesep,'figures'];
+% if ~isfolder(plotpath)
+%     mkdir(plotpath)
+% end
 
 
 
@@ -477,8 +549,9 @@ print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 %     };
 % %%
 
-xlim = [4 4000];
-ylim = [1e-6 4e-3];
+xlim = [4 1000];
+% ylim = [1e-6 4e-3];
+ylim = [1e-6 1e-1];
 
 Npoints = 40;
 
@@ -487,46 +560,67 @@ Nlvl = size(avS,1);
 
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$W$','$W_\theta$','$W_q$'},'Interpreter','latex','Location','best')
+    if i_l==1
+        legend({'$W$','$W_\theta$','$W_q$'},'Interpreter','latex','Location','best')
+    end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'W_',levels{i_l}],'-dpng','-r300')
 end
 
-
+%%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},1,Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$S_3^L r^{-1}$'},'Interpreter','latex','Location','best')
+    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr','s3ar'},[1 6],Npoints,'XLim',xlim,'YLim',ylim);
+    if i_l==1
+        legend({'$S_3 r^{-1}$','$S_3^a r^{-1}$'},'Interpreter','latex','Location','best')
+    end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s3l_',levels{i_l}],'-dpng','-r300')
 end
 
-
+%%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','edr_s2_4'},[7 3],Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','Ws3ar','edr_s2_4'},[7 2 3],Npoints,'XLim',xlim,'YLim',ylim);
+    if i_l==1
+        legend({'$W-S_3 r^{-1}$','$W-S_3^a r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
     print(fig,[plotpath,filesep,'Ws3l_',levels{i_l}],'-dpng','-r300')
 end
 
-
+%%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
-    legend({'$W$','$-S_3^L r^{-1}$','$-T_{int}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-s3ar','-Tint','edr_s2_4'},[7 1 6 5 3],Npoints,'XLim',xlim,'YLim',ylim);
+    if i_l==1
+        legend({'$W$','$-S_3 r^{-1}$','$-S_3^a r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')
 end
 
-
+%%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],Npoints,'XLim',xlim,'YLim',[8e-4 1e-2]);
-    legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    if i_l==1
+        legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    end
     ylabel('$S_2r^{-2/3}C^{-1}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s2_',levels{i_l}],'-dpng','-r300')
+end
+
+%%
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'uuu3r','vvu3r','wwu3r','uuA3r','vvA3r','wwA3r'},[7 5 1 2 4 6],Npoints,'XLim',xlim,'YLim',ylim);
+    if i_l==1
+        legend({'uuu','vvu','wwu','$uu|u|$','$vv|u|$','$ww|u|$'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$3S_3 r^{-1}$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'s3_comp_',levels{i_l}],'-dpng','-r300')
 end
 
 
@@ -553,7 +647,9 @@ Nlvl = size(avS,1);
 for i_l = 1:Nlvl
     
     fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 5 1],Npoints,'XLim',xlim,'YLim',[1e-3 2e-2]);
-    legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    if i_l==1
+        legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    end
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'edr2_',levels{i_l}],'-dpng','-r300')
