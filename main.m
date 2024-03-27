@@ -19,7 +19,8 @@
 % 
 % In this code v1 is used.
 
-iferrors = false;
+iferrors = true;
+orientation = 'reversed';
 
 
 % Prepare paths
@@ -28,7 +29,7 @@ addpath(genpath(myprojectpath))
 
 datapath = mydatapath;
 
-plotpath = [myprojectpath,filesep,'figures_r'];
+plotpath = [myprojectpath,filesep,'figures_',orientation];
 if ~isfolder(plotpath)
     mkdir(plotpath)
 end
@@ -96,40 +97,43 @@ MOM.valid_fraction = 1 - MOM.OR_cloud_fraction;
 %% Calculate SFC with uncertainties for individual segments
 
 % List of structure functions
-sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
-            'vvu',{'UX_DET','UX_DET','VY_DET'};
-            'wwu',{'W_DET','W_DET','VY_DET'};
-            'wB', {'W_DET','B'};
-            'wBt',{'W_DET','Bt'};
-            'wBq',{'W_DET','Bq'};
-            'uu', {'VY_DET','VY_DET'};
-            'vv', {'UX_DET','UX_DET'};
-            'ww', {'W_DET','W_DET'};
-            'uuW',{'VY_DET','VY_DET','X_W_DET'};
-            'vvW',{'UX_DET','UX_DET','X_W_DET'};
-            'wwW',{'W_DET','W_DET','X_W_DET'};
-            'uuA',{'VY_DET','VY_DET','A_VY_DET'};
-            'vvA',{'UX_DET','UX_DET','A_VY_DET'};
-            'wwA',{'W_DET','W_DET','A_VY_DET'};
-            };
-        
-% sfc_vars = {'uuu',{'UX_DET','UX_DET','UX_DET'};
-%             'vvu',{'VY_DET','VY_DET','UX_DET'};
-%             'wwu',{'W_DET','W_DET','UX_DET'};
-%             'wB', {'W_DET','B'};
-%             'wBt',{'W_DET','Bt'};
-%             'wBq',{'W_DET','Bq'};
-%             'uu', {'UX_DET','UX_DET'};
-%             'vv', {'VY_DET','VY_DET'};
-%             'ww', {'W_DET','W_DET'};
-%             'uuW',{'UX_DET','UX_DET','X_W_DET'};
-%             'vvW',{'VY_DET','VY_DET','X_W_DET'};
-%             'wwW',{'W_DET','W_DET','X_W_DET'};
-%             'uuA',{'UX_DET','UX_DET','A_UX_DET'};
-%             'vvA',{'VY_DET','VY_DET','A_UX_DET'};
-%             'wwA',{'W_DET','W_DET','A_UX_DET'};
-%             };
 
+if strcmp(orientation,'reversed')
+    sfc_vars = {'uuu',{'VY_DET','VY_DET','VY_DET'};
+                'vvu',{'UX_DET','UX_DET','VY_DET'};
+                'wwu',{'W_DET','W_DET','VY_DET'};
+                'wB', {'W_DET','B'};
+                'wBt',{'W_DET','Bt'};
+                'wBq',{'W_DET','Bq'};
+                'uu', {'VY_DET','VY_DET'};
+                'vv', {'UX_DET','UX_DET'};
+                'ww', {'W_DET','W_DET'};
+                'uuW',{'VY_DET','VY_DET','X_W_DET'};
+                'vvW',{'UX_DET','UX_DET','X_W_DET'};
+                'wwW',{'W_DET','W_DET','X_W_DET'};
+%                 'uuA',{'VY_DET','VY_DET','A_VY_DET'};
+%                 'vvA',{'UX_DET','UX_DET','A_VY_DET'};
+%                 'wwA',{'W_DET','W_DET','A_VY_DET'};
+                };
+elseif strcmp(orientation,'original')
+    sfc_vars = {'uuu',{'UX_DET','UX_DET','UX_DET'};
+                'vvu',{'VY_DET','VY_DET','UX_DET'};
+                'wwu',{'W_DET','W_DET','UX_DET'};
+                'wB', {'W_DET','B'};
+                'wBt',{'W_DET','Bt'};
+                'wBq',{'W_DET','Bq'};
+                'uu', {'UX_DET','UX_DET'};
+                'vv', {'VY_DET','VY_DET'};
+                'ww', {'W_DET','W_DET'};
+                'uuW',{'UX_DET','UX_DET','X_W_DET'};
+                'vvW',{'VY_DET','VY_DET','X_W_DET'};
+                'wwW',{'W_DET','W_DET','X_W_DET'};
+%                 'uuA',{'UX_DET','UX_DET','A_UX_DET'};
+%                 'vvA',{'VY_DET','VY_DET','A_UX_DET'};
+%                 'wwA',{'W_DET','W_DET','A_UX_DET'};
+                };
+end
+            
 % Max r separation
 r_max = 1000;
 dr = 4;
@@ -345,17 +349,17 @@ for i_l = 1:Nlvl
     avS(i_l).s3lr = avS(i_l).s3l./r;
     avU(i_l).s3lr = avU(i_l).s3l./r;
     
-    avS(i_l).s3ar = avS(i_l).s3a./r;
-    avU(i_l).s3ar = avU(i_l).s3a./r;
+    avS(i_l).Ti = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
+    avU(i_l).Ti = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
     
     avS(i_l).Ws3lr = avS(i_l).W - avS(i_l).s3lr;
     avU(i_l).Ws3lr = avU(i_l).W + avU(i_l).s3lr;
     
-    avS(i_l).Ws3ar = avS(i_l).W - avS(i_l).s3ar;
-    avU(i_l).Ws3ar = avU(i_l).W + avU(i_l).s3ar;
+    avS(i_l).ms3l = -avS(i_l).s3l;
+    avU(i_l).ms3l = avU(i_l).s3l;
     
-    avS(i_l).Ti = 3*cumtrapz(r,avS(i_l).s2W.*r.^2) ./ r.^3;
-    avU(i_l).Ti = 3*cumtrapz(r,avU(i_l).s2W.*r.^2) ./ r.^3;
+    avS(i_l).Wrs3l = avS(i_l).W.*r - avS(i_l).s3l;
+    avU(i_l).Wrs3l = avU(i_l).W.*r + avU(i_l).s3l;
     
     avS(i_l).uuu3r = 3*avS(i_l).uuu./r;
     avS(i_l).vvu3r = 3*avS(i_l).vvu./r;
@@ -364,50 +368,22 @@ for i_l = 1:Nlvl
     avU(i_l).vvu3r = 3*avU(i_l).vvu./r;
     avU(i_l).wwu3r = 3*avU(i_l).wwu./r;
     
-    avS(i_l).uuA3r = 3*avS(i_l).uuA./r;
-    avS(i_l).vvA3r = 3*avS(i_l).vvA./r;
-    avS(i_l).wwA3r = 3*avS(i_l).wwA./r;
-    avU(i_l).uuA3r = 3*avU(i_l).uuA./r;
-    avU(i_l).vvA3r = 3*avU(i_l).vvA./r;
-    avU(i_l).wwA3r = 3*avU(i_l).wwA./r;
     
-    avS(i_l).Wrs3l = avS(i_l).W.*r - avS(i_l).s3l;
-    avU(i_l).Wrs3l = avU(i_l).W.*r + avU(i_l).s3l;
-    
-    avS(i_l).Wrs3a = avS(i_l).W.*r - avS(i_l).s3a;
-    avU(i_l).Wrs3a = avU(i_l).W.*r + avU(i_l).s3a;
+    if all(ismember({'uuA','vvA','wwA'},fieldnames(avS)))
+        avS(i_l).s3ar = avS(i_l).s3a./r;
+        avU(i_l).s3ar = avU(i_l).s3a./r;
 
-end
+        avS(i_l).Ws3ar = avS(i_l).W - avS(i_l).s3ar;
+        avU(i_l).Ws3ar = avU(i_l).W + avU(i_l).s3ar;
 
-
-
-%% Calculate dissipation rate
-
-fit_range = [20 60];
-
-edr_vars = {'uu','vv','ww','Wrs3l'};
-slps = [2/3 2/3 2/3 1];
-cons = [2.0 2.6 2.6 4.0];
-
-Nvar = numel(edr_vars);
-for i_v = 1:Nvar
-    var = edr_vars{i_v};
-    [avS,avU] = calc_edr(avS,avU,edr_vars{i_v},'Slope',slps(i_v),'Constant',cons(i_v),...
-        'FitRange',fit_range,'Method','direct','FitPoints',6);
-end
-
-
-% Compensate for plotting
-Nlvl = size(avS,1);
-for i_l = 1:Nlvl
-    r = (1:length(avS(i_l).uuu))*avS(i_l).dr;
-    for i_v = 1:Nvar
-        var = edr_vars{i_v};
-        avS(i_l).([var,'_c']) = avS(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
-        avU(i_l).([var,'_c']) = avU(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
+        avS(i_l).uuA3r = 3*avS(i_l).uuA./r;
+        avS(i_l).vvA3r = 3*avS(i_l).vvA./r;
+        avS(i_l).wwA3r = 3*avS(i_l).wwA./r;
+        avU(i_l).uuA3r = 3*avU(i_l).uuA./r;
+        avU(i_l).vvA3r = 3*avU(i_l).vvA./r;
+        avU(i_l).wwA3r = 3*avU(i_l).wwA./r;
     end
-    avS(i_l).edr_s2_4 = avS(i_l).edr_s2*4;
-    avU(i_l).edr_s2_4 = avU(i_l).edr_s2*4;
+    
 end
 
 
@@ -484,17 +460,62 @@ avS(ind_l(i_l)).Tint = ( avS_T_int(2*i_l,:) - avS_T_int(2*i_l-1,:) )/alt_increme
 avU(ind_l(i_l)).Tint = sqrt( avU_T_int(2*i_l,:).^2 + avU_T_int(2*i_l-1,:).^2 )/alt_increment/2;
 
 
+% Dependent parameters
+
+for i_l = 1:Nlvl
+    r = (1:length(avS(i_l).uuu))*avS(i_l).dr;
+
+    avS(i_l).WST = avS(i_l).W - avS(i_l).s3lr - avS(i_l).Tint;
+    avU(i_l).WST = avU(i_l).W + avU(i_l).s3lr + avU(i_l).Tint;
+    
+    avS(i_l).WrST = avS(i_l).W.*r - avS(i_l).s3l - avS(i_l).Tint.*r;
+    avU(i_l).WrST = avU(i_l).W.*r + avU(i_l).s3l + avU(i_l).Tint.*r;
+end
+
+
+
+%% Calculate dissipation rate
+
+fit_range = [20 60];
+
+edr_vars = {'uu','vv','ww','ms3l','Wrs3l','WrST'};
+slps = [2/3 2/3 2/3 1 1 1];
+cons = [2.0 2.6 2.6 4.0 4.0 4.0];
+
+Nvar = numel(edr_vars);
+for i_v = 1:Nvar
+    var = edr_vars{i_v};
+    [avS,avU] = calc_edr(avS,avU,edr_vars{i_v},'Slope',slps(i_v),'Constant',cons(i_v),...
+        'FitRange',fit_range,'Method','direct','FitPoints',6);
+end
+
+
+% Compensate for plotting
+Nlvl = size(avS,1);
+for i_l = 1:Nlvl
+    r = (1:length(avS(i_l).uuu))*avS(i_l).dr;
+    for i_v = 1:Nvar
+        var = edr_vars{i_v};
+        avS(i_l).([var,'_c']) = avS(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
+        avU(i_l).([var,'_c']) = avU(i_l).(var) ./ r.^slps(i_v) / cons(i_v);
+    end
+    avS(i_l).edr_s2_4 = avS(i_l).edr_s2*4;
+    avU(i_l).edr_s2_4 = avU(i_l).edr_s2*4;
+end
+
+
 
 %% Save/load
 
-save('S_eureca_1km.mat','S','U','N','L','V','avS','avU','avN',...
+save(['S_eureca_1km_',orientation,'.mat'],'S','U','N','L','V','avS','avU','avN',...
     'r_max','dr','r_maxlag','r','MOM','levels','plotpath',...
-    'MOM2','sfc_var','valid_seg')
+    'MOM2','sfc_vars','valid_seg')
 
-% load('S_eureca_1km.mat')
+
+% load(['S_eureca_1km_',orientation,'.mat'])
 % 
 % addpath(genpath(myprojectpath))
-% plotpath = [myprojectpath,filesep,'figures'];
+% plotpath = [myprojectpath,filesep,'figures_',orientation];
 % if ~isfolder(plotpath)
 %     mkdir(plotpath)
 % end
@@ -510,7 +531,7 @@ print_table(MOM2(valid_seg,:),{'length_km','alt'},1,0)
 
 % Dissipation rates
 
-print_vars = {'uu','vv','ww','s2','Wrs3l'};
+print_vars = {'uu','vv','ww','s2','ms3l','Wrs3l','WrST'};
 
 Nlvl = size(avS,1);
 Nvar = numel(print_vars);
@@ -550,8 +571,8 @@ print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
 % %%
 
 xlim = [4 1000];
-% ylim = [1e-6 4e-3];
-ylim = [1e-6 1e-1];
+ylim = [1e-6 5e-3];
+% ylim = [1e-6 1e-1];
 
 Npoints = 40;
 
@@ -570,9 +591,9 @@ end
 
 %%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr','s3ar'},[1 6],Npoints,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},[1 6],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l==1
-        legend({'$S_3 r^{-1}$','$S_3^a r^{-1}$'},'Interpreter','latex','Location','best')
+        legend({'$S_3 r^{-1}$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -581,20 +602,20 @@ end
 
 %%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'Ws3lr','Ws3ar','edr_s2_4'},[7 2 3],Npoints,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'WST','edr_s2_4'},[4 3],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l==1
-        legend({'$W-S_3 r^{-1}$','$W-S_3^a r^{-1}$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
-    print(fig,[plotpath,filesep,'Ws3l_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'WST_',levels{i_l}],'-dpng','-r300')
 end
 
 %%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-s3ar','-Tint','edr_s2_4'},[7 1 6 5 3],Npoints,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l==1
-        legend({'$W$','$-S_3 r^{-1}$','$-S_3^a r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+        legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
@@ -607,18 +628,18 @@ for i_l = 1:Nlvl
     if i_l==1
         legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     end
-    ylabel('$S_2r^{-2/3}C^{-1}$','Interpreter','latex')
+    ylabel('$S_2r^{-2/3}C^{-1} $','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s2_',levels{i_l}],'-dpng','-r300')
 end
 
 %%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'uuu3r','vvu3r','wwu3r','uuA3r','vvA3r','wwA3r'},[7 5 1 2 4 6],Npoints,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'uuu3r','vvu3r','wwu3r'},[7 5 1 2 4 6],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l==1
-        legend({'uuu','vvu','wwu','$uu|u|$','$vv|u|$','$ww|u|$'},'Interpreter','latex','Location','best')
+        legend({'uuu','vvu','wwu'},'Interpreter','latex','Location','best')
     end
-    ylabel('$3S_3 r^{-1}$','Interpreter','latex')
+    ylabel('$3S_3 r^{-1}\,[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s3_comp_',levels{i_l}],'-dpng','-r300')
 end
@@ -653,36 +674,17 @@ for i_l = 1:Nlvl
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'edr2_',levels{i_l}],'-dpng','-r300')
-%     
-%     fig = plot_sfc_edr(avS(i_l),avU(i_l),{'Wrs3l'},7,'XLim',xlim,'YLim',[1e-6 2e-3]);
-%     ylabel('$W-S_3^L r^{-1}$','Interpreter','latex')
-%     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-%     print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
-%     
 end
 
-
-
-%% OLD
-
-% Stare obliczenia wX - niepoprawne
-%
-% Calculate velocity in between data points W_MID 
-% Nseg = size(TURB,1);
-% for i_s = 1:Nseg
-%     Lt = length(TURB(i_s).time);
-%     TURB(i_s).W_MID = interp1(TURB(i_s).W_DET,0.5:0.5:Lt)';
-%     TURB(i_s).OR_mask_mid = (interp1(double(TURB(i_s).OR_mask),0.5:0.5:Lt)'>0);
-% end
-% (...)        
-%         La = cellfun(@length,A);
-%         difA = cell2mat(A(La==Lt));
-%         midA = cell2mat(A(La>Lt));
-%         if S(i_s).level == "cloud-base"
-%             difA(TURB(i_s).OR_mask,:) = nan; 
-%             if ~isempty(midA)
-%                 midA(TURB(i_s).OR_mask_mid,:) = nan; 
-%             end
-%         end
-% (...)
-%          midI = prod( midA(r_lag+1:2:2*Lt-r_lag,:) ,2);
+%%
+for i_l = 1:Nlvl
+    
+    fig = plot_sfc_edr(avS(i_l),[],{'ms3l','Wrs3l','WrST'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
+    if i_l==1
+        legend({'$-S_3$','$-S_3+Wr$','$-S_3+Wr-T$'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$[\mathrm{m^3\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
+    
+end
