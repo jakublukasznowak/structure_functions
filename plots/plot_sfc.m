@@ -66,8 +66,8 @@ for i_l = 1:Nlvl
         
         if ~isempty(U)
             u = U(i_l).(var);
-            plot(r,abs(y)+u,'Color',c,'LineStyle','--','LineWidth',lw,'HandleVisibility','off')
-            plot(r,abs(y)-u,'Color',c,'LineStyle','--','LineWidth',lw,'HandleVisibility','off')
+            plot(r,abs(y)+u,'Color',[c,0.3],'LineStyle','--','LineWidth',lw,'HandleVisibility','off')
+            plot(r,abs(y)-u,'Color',[c,0.3],'LineStyle','--','LineWidth',lw,'HandleVisibility','off')
         end
     end
 

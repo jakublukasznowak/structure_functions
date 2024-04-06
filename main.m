@@ -507,18 +507,12 @@ end
 
 %% Save/load
 
-save(['S_eureca_1km_',orientation,'.mat'],'S','U','N','L','V','avS','avU','avN',...
-    'r_max','dr','r_maxlag','r','MOM','levels','plotpath',...
-    'MOM2','sfc_vars','valid_seg')
+% save(['S_eureca_1km_',orientation,'.mat'],'S','U','N','L','V','avS','avU','avN',...
+%     'r_max','dr','r_maxlag','r','MOM','levels','plotpath',...
+%     'MOM2','sfc_vars','valid_seg')
 
 
-% load(['S_eureca_1km_',orientation,'.mat'])
-% 
-% addpath(genpath(myprojectpath))
-% plotpath = [myprojectpath,filesep,'figures_',orientation];
-% if ~isfolder(plotpath)
-%     mkdir(plotpath)
-% end
+load(['S_eureca_1km_',orientation,'.mat'])
 
 
 
@@ -581,7 +575,7 @@ Nlvl = size(avS,1);
 
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],Npoints,'XLim',xlim,'YLim',ylim);
-    if i_l==1
+    if i_l>0
         legend({'$W$','$W_\theta$','$W_q$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
@@ -592,7 +586,7 @@ end
 %%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},[1 6],Npoints,'XLim',xlim,'YLim',ylim);
-    if i_l==1
+    if i_l>0
         legend({'$S_3 r^{-1}$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
@@ -603,7 +597,7 @@ end
 %%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'WST','edr_s2_4'},[4 3],Npoints,'XLim',xlim,'YLim',ylim);
-    if i_l==1
+    if i_l>0
         legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
@@ -614,7 +608,7 @@ end
 %%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
-    if i_l==1
+    if i_l>0
         legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
@@ -625,7 +619,7 @@ end
 %%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],Npoints,'XLim',xlim,'YLim',[8e-4 1e-2]);
-    if i_l==1
+    if i_l>0
         legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     end
     ylabel('$S_2r^{-2/3}C^{-1} $','Interpreter','latex')
@@ -636,7 +630,7 @@ end
 %%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'uuu3r','vvu3r','wwu3r'},[7 5 1 2 4 6],Npoints,'XLim',xlim,'YLim',ylim);
-    if i_l==1
+    if i_l>0
         legend({'uuu','vvu','wwu'},'Interpreter','latex','Location','best')
     end
     ylabel('$3S_3 r^{-1}\,[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
@@ -668,7 +662,7 @@ Nlvl = size(avS,1);
 for i_l = 1:Nlvl
     
     fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 5 1],Npoints,'XLim',xlim,'YLim',[1e-3 2e-2]);
-    if i_l==1
+    if i_l>0
         legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     end
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
@@ -680,7 +674,7 @@ end
 for i_l = 1:Nlvl
     
     fig = plot_sfc_edr(avS(i_l),[],{'ms3l','Wrs3l','WrST'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
-    if i_l==1
+    if i_l>0
         legend({'$-S_3$','$-S_3+Wr$','$-S_3+Wr-T$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^3\,s^{-3}}]$','Interpreter','latex')
