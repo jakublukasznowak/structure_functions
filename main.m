@@ -20,7 +20,7 @@
 % In this code v1 is used.
 
 iferrors = true;
-orientation = 'reversed';
+orientation = 'original';
 
 
 % Prepare paths
@@ -514,7 +514,7 @@ end
 
 load(['S_eureca_1km_',orientation,'.mat'])
 
-
+          
 
 %% TABLES
 
@@ -573,6 +573,7 @@ Npoints = 40;
 Nlvl = size(avS,1);
 
 
+%%
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
@@ -615,6 +616,19 @@ for i_l = 1:Nlvl
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')
 end
+
+
+%%
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YScale','linear');
+    if i_l>0
+        legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'balance_lin_',levels{i_l}],'-dpng','-r300')
+end
+
 
 %%
 for i_l = 1:Nlvl
@@ -681,4 +695,45 @@ for i_l = 1:Nlvl
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
     
+end
+
+
+
+%% Power law fits
+
+fit_range = [8 80;
+             8 300;
+             8 100];
+
+xlim = [4 1000];
+Npoints = 40;
+
+for i_l = 1:3
+    y = -avS(i_l).Tint;
+    r = (1:length(y))*S(i_l).dr;
+
+    ind_r = unique(interp1(r,1:length(y),exp(linspace(log(fit_range(i_l,1)),log(fit_range(i_l,2)),Npoints)),'nearest',length(y)));
+    rfit = r(ind_r);
+    yfit = y(ind_r);
+    
+    [p,SM] = polyfit(log(rfit),log(yfit),1);
+
+    slp = p(1);
+%     logOstar = p(2);
+%     
+%     covarM = (inv(SM.R)*inv(SM.R)')*SM.normr^2/SM.df; % covariance matix
+%     e.slp  = sqrt(covarM(1,1));
+%     e.logOstar = sqrt(covarM(2,2));
+%     Ostar = exp(logOstar);
+%     e.Ostar = Ostar*e.logOstar;
+%     
+%     corrM = corrcoef(log(rfit),log(yfit)); % correlation matix
+%     e.R2 = corrM(1,2);
+
+    [fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'-Tint'},5,Npoints,'XLim',xlim);%,'YLim',ylim);
+    plot(ax,rfit,Ostar*rfit.^slp,'-','Color','blue','LineWidth',2)
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    legend({'$-T_u$',['$s=$ ',num2str(slp,'%.2f')]},'Interpreter','latex','Location','best')
+    print(fig,[plotpath,filesep,'fit_T_',levels{i_l}],'-dpng','-r300')
 end
