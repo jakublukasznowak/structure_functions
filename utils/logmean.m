@@ -12,14 +12,10 @@ bin_ind = discretize(x,bin_edge);
 xnew = accumarray(bin_ind(:),x(:),[],@mean);
 ynew = accumarray(bin_ind(:),y(:),[],@mean);
 
-% TODO: Consider whether it is better to average in log-space, i.e.:
-% xnew = exp( accumarray(bin_ind,log(x),[],@mean) );
-% ynew = exp( accumarray(bin_ind,log(y),[],@mean) );
-
 emptyBins = ~ismember((1:Nbin)',bin_ind);
 Neb = sum(emptyBins);
 if Neb > 0
-    fprintf('Warning in LOGMEAN: %d averaging bins are empty.',Neb)
+    warning('LOGMEAN:EmptyBins','%d bins are empty.',Neb)
     xnew = xnew(~emptyBins);
     ynew = ynew(~emptyBins);
 end

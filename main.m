@@ -608,6 +608,17 @@ end
 
 %%
 for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'WST','edr_s2_4'},[4 3],Npoints,'XLim',xlim,'YScale','linear');
+    if i_l>0
+        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
+    print(fig,[plotpath,filesep,'WST_lin_',levels{i_l}],'-dpng','-r300')
+end
+
+%%
+for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
         legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
