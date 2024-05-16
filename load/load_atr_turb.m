@@ -28,7 +28,7 @@ for i_s = 1:Nseg
         datalevel,filesep,dataversion,filesep,MOM.type(i_s),filesep,MOM.flight(i_s));
     file = strcat('EUREC4A_ATR_turbulent_fluctuations_',datestr(MOM.start(i_s),'yyyymmdd'),...
         '_',MOM.flight(i_s),'_',MOM.name(i_s),'_',datalevel,'_',dataversion,'.nc');
-    fprintf('Load %s\n',file)
+%     fprintf('Load %s\n',file)
     
     [TURB{i_s},turb_info{i_s}] = load_nc(strcat(folder,filesep,file),vars,varsnew);
     

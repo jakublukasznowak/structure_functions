@@ -1,16 +1,22 @@
 
-% MYPROJECTPATH is the path where you downloaded the codes
+%% Introduction
+
+% The code requires access to the datasets which can be downloaded from
+% the public data repositories.
 %
-% MYDATAPATH is the path where you downloaded two datasets:
+% MYPROJECTPATH is the location where you downloaded the codes
+% MYDATAPATH is the path where you downloaded the datasets
 %
-% MYDATAPATH/TURBLENCE
+%
+% MYDATAPATH/ATR-EUREC4A/TURBLENCE
 %
 % Lothon, M. & Brilouet, P. (2020). SAFIRE ATR42: Turbulence Data 25 Hz. Aeris.
-% https://doi.org/10.25326/128
+% doi.org/10.25326/128
 % https://observations.ipsl.fr/aeris/eurec4a-data/AIRCRAFT/ATR/SAFIRE-TURB/PROCESSED/
 % 
 % In this code 'longlegs' L3 v1.9 is used.
 % 
+%
 % MYDATAPATH/CloudComposite
 %
 % Coutris, P. (2021). SAFIRE ATR42: PMA/Cloud composite dataset. Aeris.
@@ -18,26 +24,32 @@
 % https://observations.ipsl.fr/aeris/eurec4a-data/AIRCRAFT/ATR/PMA/PROCESSED/CloudComposite/
 % 
 % In this code v1 is used.
-
-iferrors = true;
-orientation = 'original';
-
-
-% Prepare paths
-
-addpath(genpath(myprojectpath))
-
-datapath = mydatapath;
-
-plotpath = [myprojectpath,filesep,'figures_',orientation];
-if ~isfolder(plotpath)
-    mkdir(plotpath)
-end
+%
+%
+%
+% The code was developed in MATLAB R2019b. The functionality in other
+% versions of this environment was not tested.
+%
+% One external packages is used:
+%       (1) YAML 1.1 parser and emitter for MATLAB by Martin Koch
+%           from https://www.mathworks.com/matlabcentral/fileexchange/106765-yaml
 
 
 
-%% Load datasets
+%% Settings
 
+% Compute uncertainties?
+% (takes quite a long time)
+if_uncertainties = true;
+
+% Cloud mask
+mask_rh_threshold = 98;   % Relative humidity threshold for cloud mask
+mask_ext_factor   = 1;    % Mask extension factor to account for cloud shells
+mask_nan_replace  = true; % Assume cloud if masks are nan
+
+
+
+%% Load list
 
 % List of levels
 levels  = {'cloud-base','cloud-base-noclouds','top-subcloud','mid-subcloud','near-surface'};
@@ -47,22 +59,57 @@ flight_ids = num2cell(num2str((9:19)','RF%02d'),2); % RF09 - RF19
 
 % List of variables from turbulent moments dataset
 mom_vars = {'alt','time_start','time_end',...
-    'MEAN_P','MEAN_THETA','MEAN_MR',...
-    'MEAN_WSPD','MEAN_WDIR','MEAN_TAS','MEAN_THDG'};
+    'MEAN_P','MEAN_THETA','MEAN_MR','MEAN_WDIR','MEAN_TAS','MEAN_THDG'};
 
 % List of variables from turbulent fluctuations dataset
-turb_vars = {'time','W_DET','UX_DET','VY_DET','T_DET','MR_DET'};
+turb_vars = {'time','UX_DET','VY_DET','W_DET','T_DET','MR_DET'};
 
-% List of variables from cloud composite dataset
-pma_vars = {'time','LWC','NT','CLOUD_mask'};
+% List of variables from cloud microphysics dataset
+mcph_vars = {'time','LWC','CLOUD_mask'};
 
 
-% Read data files
+% List of segments to exclude
+% (chosen based on the manual inspection of the timeseries of altitude,
+% temperature, wind speed and direction, LWC, TAS and true heading
+% from the CORE dataset:
+% CNRM/TRAMM, SAFIRE, Laboratoire d'Aérologie. (2021). SAFIRE ATR42: Core 
+% Data 1Hz - V2. Aeris. https://doi.org/10.25326/298
+
+exclude_seg = ["RF19","S1";   % (surface) altitude changes + temperature drop
+               "RF09","L1B";  % (mid-subcloud) temperature drop + wind direction variations + TAS changes
+               "RF11","L2B";  % (mid-subcloud) rain + TAS changes
+               "RF17","L2A";  % (mid-subcloud) heavy rain + temperature drop + TAS changes
+               "RF11","L1A";  % (top-subcloud) heavy rain
+               "RF17","L1B";  % (top-subcloud) heavy rain + temperature variations + TAS changes
+               "RF17","R2B";  % (cloud-base) heavy rain
+               "RF18","R1B"]; % (cloud-base) heavy rain
+
+           
+
+%% Prepare paths
+
+addpath(genpath(myprojectpath))
+
+datapath = mydatapath;
+
+plotpath = [myprojectpath,filesep,'figures'];
+if ~isfolder(plotpath), mkdir(plotpath), end
+
+
+
+%% Load datasets
 
 % Flight segmentation
 disp('Load flight segmentation ...')
 SEG = load_atr_seg(datapath,'v1.9','longlegs');                          
 SEG = SEG(ismember(SEG.flight,flight_ids) & ismember(SEG.level,levels),:);
+
+% Exclude problematic segments
+Nexc = size(exclude_seg,1);
+for i_e = 1:Nexc
+    ind_s = find( SEG.flight==exclude_seg(i_e,1) & SEG.name==exclude_seg(i_e,2) );
+    SEG(ind_s,:) = [];
+end
 
 % Mean values and moments
 disp('Load mean values and moments ...')
@@ -73,28 +120,45 @@ MOM = join(SEG,MOM,'Keys',{'start','end'});
 disp('Load turbulence data ...')
 [TURB,turb_info] = load_atr_turb(MOM,datapath,'L3','v1.9',turb_vars);
 
+MOM.dr = MOM.MEAN_TAS./[TURB.fsamp]';
+
 % Microphysics
 disp('Load microphysics data ...')
-PMA = load_atr_pma(MOM,datapath,pma_vars);
+MCPH = load_atr_pma(MOM,datapath,mcph_vars);
 
 
-% Calculate additional parameters
+Nseg = size(MOM,1);
+fprintf('Number of segments loaded: %d\n',Nseg)
+
+
+
+%% Compute auxilliary parameters
+
+disp('Compute thermodynamics and cloud mask ...')
+
 
 % Thermodynamics (including buoyancy)
+
 TURB = calc_thermo(TURB,MOM);
 
-% Cloud masks
-% (1) from PMA dataset based on LWC and interpolated to 25 Hz
-% (2) based on RH>98%
-% [both extended in front and behind each cloud by its 1 width]
-% (3) union of the two extended masks
-[TURB,MOM] = cloud_mask(TURB,MOM,PMA,98,1);
 
+% Cloud masks
+
+% (1) from microphysics based on LWC and interpolated to 25 Hz
+% (2) based on RH>threshold
+% [both extended in front and behind each cloud]
+% (3) union of the two extended masks
+
+[TURB,MOM] = cloud_mask(TURB,MOM,MCPH,mask_rh_threshold,mask_ext_factor,mask_nan_replace);
+
+for i_s = 1:Nseg
+    TURB(i_s).OR_mask(isnan(TURB(i_s).OR_mask)) = mask_nan_replace;
+end
 MOM.valid_fraction = 1 - MOM.OR_cloud_fraction;
 
 
 
-%% Calculate SFC with uncertainties for individual segments
+%% Compute structure functions for individual segments
 
 % List of structure functions
 

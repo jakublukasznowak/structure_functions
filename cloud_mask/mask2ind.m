@@ -1,5 +1,9 @@
 
-function indlist = mask2ind (logvec)
+function indlist = mask2ind (logvec,nan_replace)
+
+if nargin<2 || isempty(nan_replace)
+    nan_replace = false;
+end
 
 % MASK2IND converts a mask from logical vector into a list of start/end
 % indices.
@@ -12,27 +16,17 @@ function indlist = mask2ind (logvec)
 % If the LOGVEC ends with TRUE, INDLIST(2,end) is length(LOGVEC).
 
 
-logvec(isnan(logvec)) = 0;
-Lc = length(logvec);
+logvec(isnan(logvec)) = nan_replace;
 
-if max(logvec)>0
-    ip = find(diff(logvec)== 1); Lp=length(ip);
-    im = find(diff(logvec)==-1); Lm=length(im);
-    if ip(1)<im(1)
-        if Lp==Lm
-            indlist = [ip+1 im];
-        elseif Lp>Lm
-            indlist = [ip+1 [im;Lc]];
-        end
-    else
-        if Lp==Lm
-            indlist = [[1;ip+1] [im;Lc]];
-        elseif Lp<Lm
-            indlist = [[1;ip+1] im];
-        end
-    end
+logvec2 = [false; logvec; false];
+
+
+if max(logvec2)>0
+    ip = find(diff(logvec2)== 1); 
+    im = find(diff(logvec2)==-1); 
+    indlist = [ip im-1];
 else
-    indlist=[];
+    indlist = [];
 end
 
     

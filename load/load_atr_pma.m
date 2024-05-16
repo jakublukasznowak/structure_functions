@@ -17,7 +17,7 @@ pma = cell(Nf,1);
 pma_info = cell(Nf,1);
 
 for i_f = 1:Nf
-    fprintf('Load %s\n',d(i_f).name)
+%     fprintf('Load %s\n',d(i_f).name)
     
     [pma{i_f},pma_info{i_f}] = load_nc([d(i_f).folder,filesep,d(i_f).name],pma_vars);
     

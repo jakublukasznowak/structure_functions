@@ -16,7 +16,7 @@ Nf = numel(d);
 
 MOM = cell(Nf,1); mom_info = cell(Nf,1);
 for i_f = 1:Nf
-    fprintf('Load %s\n',d(i_f).name)
+%     fprintf('Load %s\n',d(i_f).name)
     [MOM{i_f},mom_info{i_f}] = load_nc([d(i_f).folder,filesep,d(i_f).name],vars);
     MOM{i_f} = struct2table(MOM{i_f});
 end

@@ -19,7 +19,7 @@ Nf = numel(d);
 
 SEG = cell(Nf,1);
 for i_f = 1:Nf
-    fprintf('Load %s\n',d(i_f).name)
+%     fprintf('Load %s\n',d(i_f).name)
     yml = yaml.loadFile([d(i_f).folder,filesep,d(i_f).name],'ConvertToArray',true);
     for i_s = 1:numel(yml.legs)
         yml.legs(i_s).flight = yml.flight_id;
