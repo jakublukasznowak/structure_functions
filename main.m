@@ -532,9 +532,9 @@ end
 
 %% Save/load
 
-save('S_eureca.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*',...
-    'MOM','S','U','L','N','V','avS','avU','avN',...
-    'plotpath')
+% save('S_eureca.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*',...
+%     'MOM','S','U','L','N','V','avS','avU','avN',...
+%     'plotpath')
 
 
 % load('S_eureca.mat')
@@ -545,12 +545,12 @@ save('S_eureca.mat','r_max','transport_method','edr_fit_range','levels','exclude
 
 % Segment overview
 
-print_table(MOM,{'length_km','alt'},1,0)
+print_table(MOM,{'length_km','alt'},true,0,{'mean','std'})
 
 
 % Dissipation rates
 
-print_vars = {'uu','vv','ww','s2','ms3l','Wrs3l','WrST'};
+print_vars = {'uu','vv','ww','S2'};%'mS3','WrmS3','WrmS3mTr'};
 
 Nlvl = size(avS,1);
 Nvar = numel(print_vars);
@@ -569,36 +569,29 @@ end
 
 %% PLOTS
 
-
-%% Overview of the segments
-
-plot_seg_overview(MOM,setdiff(levels,{'cloud-base-noclouds'},'stable'),false);
-print(gcf,[plotpath,filesep,'seg_overview'],'-dpng','-r300')
-
-
-%% Structure functions
-
-% plots = {
-%     {'uuu3r','vvu3r','wwu3r'}, {'uuu','vvu','wwu'}, '$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-%     {'W','Wt','Wq'}, {'$W$','$W_\theta$','$W_q$'},'$W\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-%     {'s3lr'}, {'$S_3^L r^{-1}$'}, '$S_3^Lr^{-1}\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-%     {'Ws3lr','edr_s2_4'}, {'$W-S_3^L r^{-1}$','$4\epsilon_2$'},'$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-%     {'Tres','Tdif'}, {'$T_{res}$','$T_{dif}$'}, '$T\,[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-%     {'uu_c','vv_c','ww_c'}, {'uu','vv','ww'}, '$S_2r^{-2/3}C^{-1}$', [8e-4 1e-2];
-%     {'W','m_s3lr','m_Tdif','edr_s2_4'}, {'$W$','$-S_3^L r^{-1}$','$-T_{dif}$','$4\epsilon_2$'}, '$[\mathrm{m^2\,s^{-3}}]$', [1e-6 4e-3];
-%     };
-% %%
-
 xlim = [4 1000];
 ylim = [1e-6 5e-3];
-% ylim = [1e-6 1e-1];
 
 Npoints = 40;
 
 Nlvl = size(avS,1);
 
 
-%%
+% S2
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],Npoints,'XLim',xlim,'YLim',[8e-4 1e-2]);
+    if i_l>0
+        legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$S_2r^{-2/3}C^{-1} $','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'s2_',levels{i_l}],'-dpng','-r300')
+end
+    
+
+% W
+
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'W','Wt','Wq'},[7 5 1],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
@@ -609,42 +602,24 @@ for i_l = 1:Nlvl
     print(fig,[plotpath,filesep,'W_',levels{i_l}],'-dpng','-r300')
 end
 
-%%
+
+% S3
+
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'s3lr'},[1 6],Npoints,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'S3r'},[1 6],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
         legend({'$S_3 r^{-1}$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'s3l_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'s3r_',levels{i_l}],'-dpng','-r300')
 end
 
-%%
-for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'WST','edr_s2_4'},[4 3],Npoints,'XLim',xlim,'YLim',ylim);
-    if i_l>0
-        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
-    end
-    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
-    print(fig,[plotpath,filesep,'WST_',levels{i_l}],'-dpng','-r300')
-end
 
-%%
-for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'WST','edr_s2_4'},[4 3],Npoints,'XLim',xlim,'YScale','linear');
-    if i_l>0
-        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
-    end
-    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
-    print(fig,[plotpath,filesep,'WST_lin_',levels{i_l}],'-dpng','-r300')
-end
+% Balance: W, S3/r, T, epsilon
 
-%%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-S3r','-T','edr_S2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
         legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
@@ -653,10 +628,8 @@ for i_l = 1:Nlvl
     print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')
 end
 
-
-%%
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-s3lr','-Tint','edr_s2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YScale','linear');
+    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-S3r','-T','edr_S2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YScale','linear');
     if i_l>0
         legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
@@ -666,18 +639,31 @@ for i_l = 1:Nlvl
 end
 
 
-%%
+% Total sum: W - S3/r - T
+
 for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'uu_c','vv_c','ww_c'},[7 5 1],Npoints,'XLim',xlim,'YLim',[8e-4 1e-2]);
+    fig = plot_sfc(avS(i_l),avU(i_l),{'WmS3rmT','edr_S2_4'},[4 3],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
-        legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
+        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
     end
-    ylabel('$S_2r^{-2/3}C^{-1} $','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'s2_',levels{i_l}],'-dpng','-r300')
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
+    print(fig,[plotpath,filesep,'total_',levels{i_l}],'-dpng','-r300')
 end
 
-%%
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'WmS3rmT','edr_S2_4'},[4 3],Npoints,'XLim',xlim,'YScale','linear');
+    if i_l>0
+        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
+    print(fig,[plotpath,filesep,'total_lin_',levels{i_l}],'-dpng','-r300')
+end
+
+
+% S3 components
+
 for i_l = 1:Nlvl
     fig = plot_sfc(avS(i_l),avU(i_l),{'uuu3r','vvu3r','wwu3r'},[7 5 1 2 4 6],Npoints,'XLim',xlim,'YLim',ylim);
     if i_l>0
@@ -689,87 +675,66 @@ for i_l = 1:Nlvl
 end
 
 
-
-% for i_p = 1:size(plots,1)
-%     for i_l = 1:Nlvl
-%         fig = plot_sfc(avS(i_l),avU(i_l),plots{i_p,1},[7 1 5 3],...
-%             'XLim',xlim,'YLim',plots{i_p,4});
-%         if numel(plots{i_p,2})>1
-%             legend(plots{i_p,2},'Interpreter','latex','Location','best')
-%         end
-%         ylabel(plots{i_p,3},'Interpreter','latex')
-%         title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-%         print(fig,[plotpath,filesep,plots{i_p,1}{1},'_',levels{i_l}],'-dpng','-r300')
-%     end
-% end
-
-
-
-%% Fitting dissipation
-
-Nlvl = size(avS,1);
+% Fitting dissipation
 
 for i_l = 1:Nlvl
-    
     fig = plot_sfc_edr(avS(i_l),[],{'uu','vv','ww'},[7 5 1],Npoints,'XLim',xlim,'YLim',[1e-3 2e-2]);
     if i_l>0
         legend({'uu','vv','ww'},'Interpreter','latex','Location','best')
     end
     ylabel('$S_2r^{-2/3}$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'edr2_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'edr2fit_',levels{i_l}],'-dpng','-r300')
 end
 
-%%
 for i_l = 1:Nlvl
     
-    fig = plot_sfc_edr(avS(i_l),[],{'ms3l','Wrs3l','WrST'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
+    fig = plot_sfc_edr(avS(i_l),[],{'mS3','WrmS3','WrmS3mTr'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
     if i_l>0
-        legend({'$-S_3$','$-S_3+Wr$','$-S_3+Wr-T$'},'Interpreter','latex','Location','best')
+        legend({'$-S_3$','$Wr-S_3$','$Wr-S_3-Tr$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^3\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'edr3_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'edr3fit_',levels{i_l}],'-dpng','-r300')
     
 end
 
 
+% Check power law in T
 
-%% Power law fits
+t_levels = {'cloud-base','cloud-base-noclouds','top-subcloud'};
+t_fit_range = [8 80; 8 300; 8 100];
 
-edr_fit_range = [8 80;
-             8 300;
-             8 100];
 
-xlim = [4 1000];
-Npoints = 40;
-
-for i_l = 1:3
-    y = -avS(i_l).Tint;
+for ii_l = 1:numel(t_levels)
+    i_l = find(strcmp(levels,t_levels{ii_l}));
+    
+    y = -avS(i_l).T;
     r = (1:length(y))*S(i_l).dr;
 
-    ind_r = unique(interp1(r,1:length(y),exp(linspace(log(edr_fit_range(i_l,1)),log(edr_fit_range(i_l,2)),Npoints)),'nearest',length(y)));
+    ind_r = unique(interp1(r,1:length(y),exp(linspace(log(t_fit_range(i_l,1)),log(t_fit_range(i_l,2)),Npoints)),'nearest',length(y)));
     rfit = r(ind_r);
     yfit = y(ind_r);
     
     [p,SM] = polyfit(log(rfit),log(yfit),1);
 
     slp = p(1);
-%     logOstar = p(2);
-%     
-%     covarM = (inv(SM.R)*inv(SM.R)')*SM.normr^2/SM.df; % covariance matix
-%     e.slp  = sqrt(covarM(1,1));
-%     e.logOstar = sqrt(covarM(2,2));
-%     Ostar = exp(logOstar);
-%     e.Ostar = Ostar*e.logOstar;
-%     
-%     corrM = corrcoef(log(rfit),log(yfit)); % correlation matix
-%     e.R2 = corrM(1,2);
+    logOstar = p(2);
+    
+    covarM = (inv(SM.R)*inv(SM.R)')*SM.normr^2/SM.df; % covariance matix
+    e.slp  = sqrt(covarM(1,1));
+    e.logOstar = sqrt(covarM(2,2));
+    
+    Ostar = exp(logOstar);
+    e.Ostar = Ostar*e.logOstar;
+    
+    corrM = corrcoef(log(rfit),log(yfit)); % correlation matix
+    e.R2 = corrM(1,2);
 
-    [fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'-Tint'},5,Npoints,'XLim',xlim);%,'YLim',ylim);
+    [fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'-T'},5,Npoints,'XLim',xlim);%,'YLim',ylim);
     plot(ax,rfit,Ostar*rfit.^slp,'-','Color','blue','LineWidth',2)
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     legend({'$-T_u$',['$s=$ ',num2str(slp,'%.2f')]},'Interpreter','latex','Location','best')
-    print(fig,[plotpath,filesep,'fit_T_',levels{i_l}],'-dpng','-r300')
+    print(fig,[plotpath,filesep,'Tfit_',levels{i_l}],'-dpng','-r300')
 end

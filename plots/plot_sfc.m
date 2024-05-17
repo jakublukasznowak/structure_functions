@@ -16,7 +16,6 @@ end
 [fig,ax,co] = fig16x12('loglog',[1 0],'on',varargin{:});
 
 mk = repmat({'^','o','+','d','s'},1,5);
-
 co = co(colors,:);
 mk = mk(colors);
 
