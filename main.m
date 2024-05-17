@@ -217,7 +217,7 @@ sfc_vars = {'uuu',{'UX_DET','UX_DET','UX_DET'};
             'ww', {'W_DET','W_DET'};
             'wXuu',{'UX_DET','UX_DET','X_W_DET'};
             'wXvv',{'VY_DET','VY_DET','X_W_DET'};
-            'wXww',{'W_DET','W_DET','X_W_DET'};};
+            'wXww',{'W_DET','W_DET','X_W_DET'}};
 
 
 % Prepare data structures
@@ -243,7 +243,6 @@ for i_v = 1:Nvar
     midFlag = startsWith(varlist,'X_');  % factors of type w_X
     absFlag = startsWith(varlist,'A_');  % factors of type |dw|
     difFlag = ~(midFlag | absFlag);      % factors of type dw
-    % startsWith(varlist,'X_') & ~startsWith(varlist,'A_'); % 
     varlist(midFlag) = extractAfter(varlist(midFlag),'X_');
     varlist(absFlag) = extractAfter(varlist(absFlag),'A_');
     
@@ -436,7 +435,8 @@ if strcmp(transport_method,'diff') % from differences between levels
     
     level_pairs = {'cloud-base','top-subcloud';
                    'cloud-base-noclouds','top-subcloud';
-                   'top-subcloud','mid-subcloud';                   'mid-subcloud','near-surface'};
+                   'top-subcloud','mid-subcloud';
+                   'mid-subcloud','near-surface'};
 
     for i_lp = 1:size(level_pairs,1)
         i_l1 = find([avS(:).level]==level_pairs{i_lp,1});
@@ -688,15 +688,13 @@ for i_l = 1:Nlvl
 end
 
 for i_l = 1:Nlvl
-    
     fig = plot_sfc_edr(avS(i_l),[],{'mS3','WrmS3','WrmS3mTr'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
     if i_l>0
-        legend({'$-S_3$','$Wr-S_3$','$Wr-S_3-Tr$'},'Interpreter','latex','Location','best')
+        legend({'$-S_3 r^{-1}$','$W-S_3 r^{-1}$','$W-S_3 r^{-1}-T_u$'},'Interpreter','latex','Location','best')
     end
     ylabel('$[\mathrm{m^3\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'edr3fit_',levels{i_l}],'-dpng','-r300')
-    
 end
 
 
