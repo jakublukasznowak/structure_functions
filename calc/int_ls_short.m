@@ -1,6 +1,6 @@
 
 % Calculate integral length scale LS [in points] based on the correlation
-% function of data vectors X and Y (i.e. autocorrelation if Y=X,
+% function RHO of data vectors X and Y (i.e. autocorrelation if Y=X,
 % crosscorrelation otherwise).
 %
 % Optional Name-Value arguments:
@@ -20,7 +20,7 @@
 % 'Plot': selects whether to show a diagnostic plot (true/false)
 
 
-function [LS,fig] = int_ls_short (x,y,options)
+function [LS,rho,fig] = int_ls_short (x,y,options)
 
 arguments
     x (:,1) {mustBeReal, mustBeNonempty}
@@ -109,12 +109,12 @@ if strcmp(options.Method,'integrate')
 % ... cumulatively until max lag and find maximum
 elseif strcmp(options.Method,'cum-integrate')
     
-    rho = nan(Li,1);
-    for lag = 0:Li-1
+    rho = nan(Li+1,1);
+    for lag = 0:Li
         rho(lag+1) =  mean( xp(lag+1:Lx) .* yp(1:Lx-lag), 'omitnan' )/Fxy;
     end
     
-    intR = cumtrapz( 0:Li-1, rho' );
+    intR = cumtrapz( 0:Li, rho' );
     [~,LS] = max(intR);
 
 % ... or take the limit crossing itself
@@ -127,6 +127,16 @@ end
 LS = LS*options.dr;
 
 
+% Correlation function
+
+if nargout>1 && ~strcmp(options.Method,'cum-integrate') 
+    rho = nan(Li+1,1);
+    for lag = 0:Li
+        rho(lag+1) =  mean( xp(lag+1:Lx) .* yp(1:Lx-lag), 'omitnan' )/Fxy;
+    end
+end
+    
+
 
 % Plot
 
@@ -135,18 +145,13 @@ if options.Plot
     lw = 1.5;
     mks = 30;
     
-    rv = (0:Li-1)*options.dr;
+    rv = (0:Li)*options.dr;
     
     [fig,~,co] = fig16x12('linlin',[1 1],'on','XLim',[0 rv(end)]);
     xlabel('$r$','Interpreter','latex')
     
     if ~strcmp(options.Method,'cum-integrate')  
-        
-        rho = nan(Li,1);
-        for lag = 0:Li-1
-            rho(lag+1) =  mean( xp(lag+1:Lx) .* yp(1:Lx-lag), 'omitnan' )/Fxy;
-        end
-      
+
         plot(rv,rho,'.','Color',co(1,:))
         plot([0,rv(end)],exp(-1)*[1 1],'LineStyle','--','LineWidth',lw,'Color','black')
         plot([0,rv(end)],[0 0],'LineStyle','--','LineWidth',lw,'Color','black')
