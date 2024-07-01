@@ -41,7 +41,7 @@
 % Compute uncertainties?
 % (takes quite a long time)
 
-if_uncertainties = false;
+if_uncertainties = true;
 
 
 % Cloud mask
@@ -53,7 +53,7 @@ mask_nan_replace  = true; % Assume cloud if masks are nan
 
 % Structure functions
 
-r_max = 1000; % [m] Max r separation
+r_max = 5000; % [m] Max r separation
 
 
 % Transport term
@@ -110,7 +110,7 @@ addpath(genpath(myprojectpath))
 
 datapath = mydatapath;
 
-plotpath = [myprojectpath,filesep,'figures'];
+plotpath = [myprojectpath,filesep,'figures_5km'];
 if ~isfolder(plotpath), mkdir(plotpath), end
 
 
@@ -532,9 +532,9 @@ end
 
 %% Save/load
 
-% save('S_eureca.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*','sfc_vars',...
-%     'MOM','S','U','L','N','V','avS','avU','avN',...
-%     'plotpath')
+save('S_eureca_5km.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*','sfc_vars',...
+    'MOM','S','U','L','N','V','avS','avU','avN',...
+    'plotpath')
 
 
 % load('S_eureca.mat')
@@ -569,7 +569,7 @@ end
 
 %% PLOTS
 
-xlim = [4 1000];
+xlim = [4 r_max];
 ylim = [1e-6 5e-3];
 
 Npoints = 40;
@@ -613,6 +613,19 @@ for i_l = 1:Nlvl
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s3r_',levels{i_l}],'-dpng','-r300')
+end
+
+
+% T
+
+for i_l = 1:Nlvl
+    fig = plot_sfc(avS(i_l),avU(i_l),{'T'},5,Npoints,'XLim',xlim,'YLim',ylim);
+    if i_l>0
+        legend({'$T_u$'},'Interpreter','latex','Location','best')
+    end
+    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+    print(fig,[plotpath,filesep,'T_',levels{i_l}],'-dpng','-r300')
 end
 
 
@@ -700,8 +713,8 @@ end
 
 % Check power law in T
 
-t_levels = {'cloud-base','cloud-base-noclouds','top-subcloud'};
-t_fit_range = [8 80; 8 300; 8 100];
+t_levels = {'cloud-base','cloud-base-noclouds','top-subcloud','mid-subcloud','near-surface'};
+t_fit_range = [8 80; 8 300; 8 100; nan nan; nan nan];
 
 
 for ii_l = 1:numel(t_levels)
@@ -709,30 +722,84 @@ for ii_l = 1:numel(t_levels)
     
     y = -avS(i_l).T;
     r = (1:length(y))*S(i_l).dr;
+    
+    if ~isnan(t_fit_range(i_l,1))
+        ind_r = unique(interp1(r,1:length(y),exp(linspace(log(t_fit_range(i_l,1)),log(t_fit_range(i_l,2)),Npoints)),'nearest',length(y)));
+        rfit = r(ind_r);
+        yfit = y(ind_r);
 
-    ind_r = unique(interp1(r,1:length(y),exp(linspace(log(t_fit_range(i_l,1)),log(t_fit_range(i_l,2)),Npoints)),'nearest',length(y)));
-    rfit = r(ind_r);
-    yfit = y(ind_r);
-    
-    [p,SM] = polyfit(log(rfit),log(yfit),1);
+        [p,SM] = polyfit(log(rfit),log(yfit),1);
 
-    slp = p(1);
-    logOstar = p(2);
-    
-    covarM = (inv(SM.R)*inv(SM.R)')*SM.normr^2/SM.df; % covariance matix
-    e.slp  = sqrt(covarM(1,1));
-    e.logOstar = sqrt(covarM(2,2));
-    
-    Ostar = exp(logOstar);
-    e.Ostar = Ostar*e.logOstar;
-    
-    corrM = corrcoef(log(rfit),log(yfit)); % correlation matix
-    e.R2 = corrM(1,2);
+        slp = p(1);
+        logOstar = p(2);
 
-    [fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'-T'},5,Npoints,'XLim',xlim);%,'YLim',ylim);
-    plot(ax,rfit,Ostar*rfit.^slp,'-','Color','blue','LineWidth',2)
+        covarM = (inv(SM.R)*inv(SM.R)')*SM.normr^2/SM.df; % covariance matix
+        e.slp  = sqrt(covarM(1,1));
+        e.logOstar = sqrt(covarM(2,2));
+
+        Ostar = exp(logOstar);
+        e.Ostar = Ostar*e.logOstar;
+
+        corrM = corrcoef(log(rfit),log(yfit)); % correlation matix
+        e.R2 = corrM(1,2);
+    end
+
+    [fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'T'},5,Npoints,'XLim',xlim,'YLim',ylim);
+    if ~isnan(t_fit_range(i_l,1))
+        plot(ax,rfit,Ostar*rfit.^slp,'-','Color','blue','LineWidth',1)
+        legend({'$T_u$',[num2str(slp,'%.2f')]},'Interpreter','latex','Location','best')
+    else
+        legend({'$T_u$'},'Interpreter','latex','Location','best')
+    end
     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    legend({'$-T_u$',['$s=$ ',num2str(slp,'%.2f')]},'Interpreter','latex','Location','best')
     print(fig,[plotpath,filesep,'Tfit_',levels{i_l}],'-dpng','-r300')
 end
+
+
+%% Graphical abstract
+
+i_l = find([avS(:).level]=="cloud-base");
+
+[fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'W','-S3r','-T','edr_S2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',[3e-6 4e-4]);
+fig.PaperSize = [25 10]; fig.PaperPosition = [0 0 25 10]; fig.Color = 'none';
+ax.Position = ax.Position + [0 0.025 0 -0.025];
+ax.XMinorGrid = 'off';
+legend({'buoyancy forcing','interscale transfer','interspace transport','dissipation'},...
+    'Interpreter','latex','Location','eastoutside')
+ylabel('Scale-by-scale budget $[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+print(fig,[plotpath,filesep,'graphical_abstract'],'-dpng','-r300')
+
+
+i_l = find([avS(:).level]=="near-surface");
+
+[fig,ax] = plot_sfc(avS(i_l),avU(i_l),{'W','-S3r','-T','edr_S2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YLim',[1e-4 5e-3]);
+fig.PaperSize = [25 10]; fig.PaperPosition = [0 0 25 10]; fig.Color = 'none';
+ax.Position = ax.Position + [0 0.025 0 -0.025];
+ax.XMinorGrid = 'off';
+legend({'buoyancy forcing','interscale transfer','interspace transport','dissipation'},...
+    'Interpreter','latex','Location','eastoutside')
+ylabel('Scale-by-scale budget $[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+print(fig,[plotpath,filesep,'graphical_abstract_ns'],'-dpng','-r300')
+
+
+%% Dissipation rates
+
+vars = {'edr_uu','edr_vv','edr_ww','edr_S2'};
+
+ind_nc = [avS(:).level]=="cloud-base-noclouds";
+
+[fig,ax,co] = fig16x12('loglin',[1 0],'on','XLim',[3e-1 10]);
+co = co([7 1 5 3],:);
+for i_v = 1:numel(vars)
+    plot([avS(~ind_nc).(vars{i_v})]*1e4,[avS(~ind_nc).alt],'o','Color',co(i_v,:),'MarkerFaceColor',co(i_v,:),'MarkerSize',10)
+end
+for i_v = 1:numel(vars)
+    plot([avS(ind_nc).(vars{i_v})]*1e4,[avS(ind_nc).alt],'o','Color',co(i_v,:),'MarkerSize',10)
+end
+legend({'u','v','w','AV'},'Interpreter','latex','Location','northeast')
+xlabel('$\epsilon [\mathrm{cm^2\,s^{-3}}]$','Interpreter','latex')
+ylabel('Altitude [m]','Interpreter','latex')
+print(fig,[plotpath,filesep,'profile_edr'],'-dpng','-r300')
