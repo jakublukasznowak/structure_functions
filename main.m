@@ -53,12 +53,12 @@ mask_nan_replace  = true; % Assume cloud if masks are nan
 
 % Structure functions
 
-r_max = 5000; % [m] Max r separation
+r_max = 1000; % [m] Max r separation
 
 
 % Transport term
 
-transport_method = 'interp'; % interp or diff
+transport_method = 'interp_analytical';
 
 
 % Dissipation rate
@@ -110,7 +110,7 @@ addpath(genpath(myprojectpath))
 
 datapath = mydatapath;
 
-plotpath = [myprojectpath,filesep,'figures_5km'];
+plotpath = [myprojectpath,filesep,'figures_revision'];
 if ~isfolder(plotpath), mkdir(plotpath), end
 
 
@@ -447,7 +447,7 @@ if strcmp(transport_method,'diff') % from differences between levels
     end
 
     
-elseif strcmp(transport_method,'interp') % from interpolated smooth function
+elseif strcmp(transport_method,'interp_finite') 
 
     alt_increment = 25; % m
     interp_method = 'pchip';
@@ -473,6 +473,48 @@ elseif strcmp(transport_method,'interp') % from interpolated smooth function
             avS(i_l).T = ( Ti_interp(2*ii_l,:) - Ti_interp(2*ii_l-1,:) )/alt_increment/2;
             avU(i_l).T = sqrt( u_Ti_interp(2*ii_l,:).^2 + u_Ti_interp(2*ii_l-1,:).^2 )/alt_increment/2;
         end
+    end
+   
+elseif strcmp(transport_method,'interp_analytical')
+    
+    interp_method = 'pchip';
+
+    level_sets = {'cloud-base','top-subcloud','mid-subcloud','near-surface';
+         'cloud-base-noclouds','top-subcloud','mid-subcloud','near-surface'};
+    
+    for i_ls = 1:size(level_sets,1) 
+        [~,ind_l] = ismember(level_sets(i_ls,:),[avS(:).level]);
+        
+        alt_vec   = [avS(ind_l).alt];
+        
+        [alt_vec,ind_sort] = sort(alt_vec);
+        ind_l = ind_l(ind_sort);
+        
+        Ti_interp = interp1(alt_vec,vertcat(avS(ind_l).Ti),interp_method,'pp');       
+        if if_uncertainties
+            u_Ti_interp = interp1(alt_vec,vertcat(avU(ind_l).Ti),interp_method,'pp');
+        else
+            u_Ti_interp = nan(size(Ti_interp));
+        end
+        
+        
+        Nll = numel(ind_l);
+        for ii_l = 1:Nll-1
+            i_l = ind_l(ii_l);
+            
+            avS(i_l).T =   Ti_interp.coefs( 1+Ti_interp.dim*(ii_l-1) : Ti_interp.dim*ii_l, 3 )';
+            avU(i_l).T = u_Ti_interp.coefs( 1+u_Ti_interp.dim*(ii_l-1) : u_Ti_interp.dim*ii_l, 3 )';
+        end
+        
+            
+        i_l = ind_l(end);        
+        dz = Ti_interp.breaks(end) - Ti_interp.breaks(end-1);
+
+        CFS = Ti_interp.coefs( 1 + Ti_interp.dim*(Nll-2) : end, : );
+        avS(i_l).T = ( 3*CFS(:,1)*dz.^2 + 2*CFS(:,2)*dz + CFS(:,3) )';
+        uCFS = u_Ti_interp.coefs( 1 + u_Ti_interp.dim*(Nll-2) : end, : );
+        avU(i_l).T = ( 3*uCFS(:,1)*dz.^2 + 2*uCFS(:,2)*dz + uCFS(:,3) )';
+                
     end
     
 end
@@ -614,6 +656,21 @@ for i_l = 1:Nlvl
     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
     print(fig,[plotpath,filesep,'s3r_',levels{i_l}],'-dpng','-r300')
 end
+
+
+% avSu = avS;
+% 
+% for i_l = 1:Nlvl
+%     avSu(i_l).S3r = avU(i_l).S3r;
+%     avSu(i_l).S3r_rel = abs(avU(i_l).S3r ./ avS(i_l).S3r);
+%     fig = plot_sfc(avSu(i_l),[],{'S3r_rel'},[1 6],Npoints)%,'XLim',xlim,'YLim',ylim);
+%     if i_l>0
+%         legend({'$S_3 r^{-1}$'},'Interpreter','latex','Location','best')
+%     end
+%     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+%     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+% %     print(fig,[plotpath,filesep,'s3r_',levels{i_l}],'-dpng','-r300')
+% end
 
 
 % T
