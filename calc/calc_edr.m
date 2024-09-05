@@ -10,6 +10,7 @@ arguments
     options.Method (1,1) string {mustBeMember(options.Method,{'direct','logmean'})} = 'direct'
     options.FitPoints (1,1) {mustBeInteger, mustBePositive, mustBeFinite, mustBeNonempty} = 10
     options.Slope (1,1) {mustBeFinite, mustBeNonempty, mustBeReal} = 2/3;
+    options.dC (1,1) {mustBeFinite, mustBeNonempty, mustBeReal} = 0;
 end
 
 
@@ -49,7 +50,7 @@ for i_s = 1:Nseg
     e_logO = std(log(sfc_fit)-slpFixed*log(rv_fit))/sqrt(length(rv_fit));
     
     edr = (exp(logO)/C)^(1/slpFixed);
-    e_edr = edr/slpFixed*e_logO;
+    e_edr = sqrt( (edr/slpFixed*e_logO).^2 + (edr/slpFixed/C*options.dC).^2 );
 
     S(i_s).(strcat('edr_',var)) = edr;
     U(i_s).(strcat('edr_',var)) = e_edr;
@@ -91,13 +92,18 @@ if all(ismember({'edr_ww','edr_uu','edr_vv'},fieldnames(S)))
     for i_s = 1:Nseg
         S(i_s).edr_S2 = mean( [S(i_s).edr_ww, S(i_s).edr_uu, S(i_s).edr_vv] );
     end
-end
 
-if all(ismember({'edr_ww','edr_uu','edr_vv'},fieldnames(U)))
-    for i_s = 1:Nseg
-        U(i_s).edr_S2 = mean( [U(i_s).edr_ww, U(i_s).edr_uu, U(i_s).edr_vv] );
+    if all(ismember({'edr_ww','edr_uu','edr_vv'},fieldnames(U)))
+        for i_s = 1:Nseg
+            x = [S(i_s).edr_ww, S(i_s).edr_uu, S(i_s).edr_vv];
+            s = [U(i_s).edr_ww, U(i_s).edr_uu, U(i_s).edr_vv];
+%             xw = sum(x./s.^2)/sum(1./s.^2);
+            xw = mean(x);
+            S(i_s).edr_S2 = xw;
+            U(i_s).edr_S2 = sqrt( max([1/sum(1./s.^2) sum( (x-xw).^2./s.^2 ) /2 / sum(1./s.^2)]) );
+%             U(i_s).edr_S2 = mean( [U(i_s).edr_ww, U(i_s).edr_uu, U(i_s).edr_vv] );
+        end
     end
-end
 
 
 end

@@ -549,7 +549,7 @@ Nvar = numel(edr_vars);
 for i_v = 1:Nvar
     var = edr_vars{i_v};
     [avS,avU] = calc_edr(avS,avU,edr_vars{i_v},edr_fit_range,cons(i_v),...
-        'Slope',slps(i_v),'Method','direct');
+        'Slope',slps(i_v),'Method','direct','dC',cons(i_v)*0.15);
 end
 
 
@@ -574,7 +574,7 @@ end
 
 %% Save/load
 
-save('S_eureca_5km.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*','sfc_vars',...
+save('S_eureca_rev.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*','sfc_vars',...
     'MOM','S','U','L','N','V','avS','avU','avN',...
     'plotpath')
 
@@ -594,6 +594,8 @@ print_table(MOM,{'length_km','alt'},true,0,{'mean','std'})
 
 print_vars = {'uu','vv','ww','S2'};%'mS3','WrmS3','WrmS3mTr'};
 
+prec = 1;
+
 Nlvl = size(avS,1);
 Nvar = numel(print_vars);
 
@@ -602,7 +604,7 @@ for i_l = 1:Nlvl
     fprintf(' %20s',avS(i_l).level)
     for i_v = 1:Nvar
         var = print_vars{i_v};
-        fprintf(' & %6.*f (%.*f)',3,1e4*avS(i_l).(['edr_',var]),3,1e4*avU(i_l).(['edr_',var]) )
+        fprintf(' & %6.*f (%.*f)',prec,1e4*avS(i_l).(['edr_',var]),prec,1e4*avU(i_l).(['edr_',var]) )
     end
     fprintf(' \\\\ \n')
 end
@@ -698,15 +700,15 @@ for i_l = 1:Nlvl
     print(fig,[plotpath,filesep,'balance_',levels{i_l}],'-dpng','-r300')
 end
 
-for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'W','-S3r','-T','edr_S2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YScale','linear');
-    if i_l>0
-        legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
-    end
-    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'balance_lin_',levels{i_l}],'-dpng','-r300')
-end
+% for i_l = 1:Nlvl
+%     fig = plot_sfc(avS(i_l),avU(i_l),{'W','-S3r','-T','edr_S2_4'},[7 1 5 3],Npoints,'XLim',xlim,'YScale','linear');
+%     if i_l>0
+%         legend({'$W$','$-S_3 r^{-1}$','$-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+%     end
+%     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+%     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+%     print(fig,[plotpath,filesep,'balance_lin_',levels{i_l}],'-dpng','-r300')
+% end
 
 
 % Total sum: W - S3/r - T
@@ -721,15 +723,15 @@ for i_l = 1:Nlvl
     print(fig,[plotpath,filesep,'total_',levels{i_l}],'-dpng','-r300')
 end
 
-for i_l = 1:Nlvl
-    fig = plot_sfc(avS(i_l),avU(i_l),{'WmS3rmT','edr_S2_4'},[4 3],Npoints,'XLim',xlim,'YScale','linear');
-    if i_l>0
-        legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
-    end
-    ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
-    print(fig,[plotpath,filesep,'total_lin_',levels{i_l}],'-dpng','-r300')
-end
+% for i_l = 1:Nlvl
+%     fig = plot_sfc(avS(i_l),avU(i_l),{'WmS3rmT','edr_S2_4'},[4 3],Npoints,'XLim',xlim,'YScale','linear');
+%     if i_l>0
+%         legend({'$W-S_3 r^{-1}-T_u$','$4\epsilon_2$'},'Interpreter','latex','Location','best')
+%     end
+%     ylabel('$[\mathrm{m^2\,s^{-3}}]$','Interpreter','latex')
+%     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt)) 
+%     print(fig,[plotpath,filesep,'total_lin_',levels{i_l}],'-dpng','-r300')
+% end
 
 
 % S3 components
