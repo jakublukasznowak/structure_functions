@@ -77,7 +77,7 @@ flight_ids = num2cell(num2str((9:19)','RF%02d'),2); % RF09 - RF19
 
 % List of variables from turbulent moments dataset
 mom_vars = {'alt','time_start','time_end',...
-    'MEAN_P','MEAN_THETA','MEAN_MR','MEAN_WDIR','MEAN_TAS','MEAN_THDG'};
+    'MEAN_P','MEAN_THETA','MEAN_MR','MEAN_WSPD','MEAN_WDIR','MEAN_TAS','MEAN_THDG'};
 
 % List of variables from turbulent fluctuations dataset
 turb_vars = {'time','UX_DET','VY_DET','W_DET','T_DET','MR_DET'};
@@ -110,7 +110,7 @@ addpath(genpath(myprojectpath))
 
 datapath = mydatapath;
 
-plotpath = [myprojectpath,filesep,'figures_revision'];
+plotpath = [myprojectpath,filesep,'figures_wo_detrending'];
 if ~isfolder(plotpath), mkdir(plotpath), end
 
 
@@ -184,6 +184,17 @@ end
 MOM.valid_fraction = 1 - MOM.OR_cloud_fraction;
 
 
+
+% Add mean wind
+
+MOM = rotate_mean_wind(MOM);
+
+for i_s = 1:Nseg
+    TURB(i_s).UX_DET = TURB(i_s).UX_DET + MOM.UX(i_s);
+    TURB(i_s).VY_DET = TURB(i_s).VY_DET + MOM.VY(i_s);
+end
+    
+
 % Duplicate cloud-base segments
 
 MOM = [MOM; MOM(MOM.level=="cloud-base",:)];
@@ -198,6 +209,7 @@ TURB = [TURB; TURB([TURB(:).level]=="cloud-base")];
 dr = 4;
 MOM.dr(:) = dr;
 r_maxlag = r_max/dr;
+
 
 
 
@@ -494,7 +506,8 @@ elseif strcmp(transport_method,'interp_analytical')
         if if_uncertainties
             u_Ti_interp = interp1(alt_vec,vertcat(avU(ind_l).Ti),interp_method,'pp');
         else
-            u_Ti_interp = nan(size(Ti_interp));
+            u_Ti_interp.coefs = nan(size(Ti_interp.coefs));
+            u_Ti_interp.dim = Ti_interp.dim;
         end
         
         
@@ -574,12 +587,12 @@ end
 
 %% Save/load
 
-save('S_eureca_rev.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*','sfc_vars',...
+save('S_eureca_1km.mat','r_max','transport_method','edr_fit_range','levels','exclude_seg','mask*','sfc_vars',...
     'MOM','S','U','L','N','V','avS','avU','avN',...
     'plotpath')
 
 
-% load('S_eureca.mat')
+% load('S_eureca_1km.mat')
 
           
 
@@ -759,15 +772,15 @@ for i_l = 1:Nlvl
     print(fig,[plotpath,filesep,'edr2fit_',levels{i_l}],'-dpng','-r300')
 end
 
-for i_l = 1:Nlvl
-    fig = plot_sfc_edr(avS(i_l),[],{'mS3','WrmS3','WrmS3mTr'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
-    if i_l>0
-        legend({'$-S_3 r^{-1}$','$W-S_3 r^{-1}$','$W-S_3 r^{-1}-T_u$'},'Interpreter','latex','Location','best')
-    end
-    ylabel('$[\mathrm{m^3\,s^{-3}}]$','Interpreter','latex')
-    title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
-    print(fig,[plotpath,filesep,'edr3fit_',levels{i_l}],'-dpng','-r300')
-end
+% for i_l = 1:Nlvl
+%     fig = plot_sfc_edr(avS(i_l),[],{'mS3','WrmS3','WrmS3mTr'},[1 7 4],Npoints,'XLim',xlim,'YLim',[1e-5 1e-2]);
+%     if i_l>0
+%         legend({'$-S_3 r^{-1}$','$W-S_3 r^{-1}$','$W-S_3 r^{-1}-T_u$'},'Interpreter','latex','Location','best')
+%     end
+%     ylabel('$[\mathrm{m^3\,s^{-3}}]$','Interpreter','latex')
+%     title(sprintf('%s ~%.0f m',levels{i_l},avS(i_l).alt))
+%     print(fig,[plotpath,filesep,'edr3fit_',levels{i_l}],'-dpng','-r300')
+% end
 
 
 % Check power law in T
