@@ -24,7 +24,7 @@ Nxq = numel(ind_x);
 
 % Paths
 
-datapath = [myprojectpath,filesep,'data_bomex',filesep];
+datapath = [myprojectpath,filesep,'data_bomex_2406',filesep];
 addpath(genpath(myprojectpath))
 
 plotpath = [myprojectpath,filesep,'figures_LES'];
